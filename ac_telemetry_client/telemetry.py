@@ -1,6 +1,9 @@
 import socket
 import struct
 import threading
+import time
+import queue
+import select
 
 from parsers import RTCarInfoParser, RTLapParser, AC_Telemetry_Parser, HandshakerResponseParser
 
@@ -36,7 +39,9 @@ class AC_Telemetry:
         self.listeners = {}
         self.acServerIp = acServerIp
         self.client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.client.settimeout(300)  # Optional timeout
+        self.client.setblocking(False)  # Set socket to non-blocking mode
+        self.lock = threading.Lock()
+        self.packet_queue = queue.Queue()  # Queue for incoming packets
         self.is_running = False
 
     def on(self, event, listener):
@@ -55,8 +60,10 @@ class AC_Telemetry:
                 return;
         
             self.is_running = True
-            listen_thread = threading.Thread(target=self.listen)
-            listen_thread.start()
+            self.listen_thread = threading.Thread(target=self.listen)
+            self.handle_thread = threading.Thread(target=self.process_packets)
+            self.listen_thread.start()
+            self.handle_thread.start()
             print(f"UDP Client listening on {self.acServerIp}:{AC_SERVER_PORT} 🏎")
 
         except socket.error as e:
@@ -65,15 +72,27 @@ class AC_Telemetry:
     def listen(self):
         while self.is_running:
             try:
-                data, addr = self.client.recvfrom(1024)  # Buffer size
-                self.parse_message(data, addr)
+                ready_to_read, _, _ = select.select([self.client], [], [], 0.1)  # 1-second timeout
+                if len(ready_to_read) == 1:
+                    data, addr = self.client.recvfrom(1024)  # Buffer size
+                    self.packet_queue.put((data, addr))
             except socket.error as e:
                 print(f"Socket error: {e}")
                 break
+            
+    def process_packets(self):
+        while self.is_running:
+            try:
+                data, addr = self.packet_queue.get(timeout=1.0)  # 1-second timeout
+                self.parse_message(data, addr)
+            except queue.Empty:
+                continue
 
     def stop(self):
         self.is_running = False
         self.client.close()
+        self.listen_thread.join()
+        self.handle_thread.join()
         print("UDP Client closed 🏁")
 
     def send_handshaker(self, op, identifier=deviceIdentifier["eIPhoneDevice"], version=AC_SERVER_VERSION):
