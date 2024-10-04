@@ -18,11 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
-#include <string.h>
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -94,6 +94,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,8 +102,8 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  //send_response("Heartbeat\n");
-	  //HAL_Delay(1000);
+	  send_response("Heartbeat\n");
+	  HAL_Delay(5000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -229,9 +230,12 @@ static void MX_GPIO_Init(void)
 
 
 void blink(uint32_t dur) {
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // Replace GPIOA and GPIO_PIN_5 with the correct port and pin for LD2
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);  // Replace GPIOA and GPIO_PIN_5 with the correct port and pin for LD2
+	send_response("Light on\n");
 	HAL_Delay(dur);                       // Wait for specified duration
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // Turn off the LED
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);  // Turn off the LED
+	send_response("Light off\n");
+	HAL_Delay(dur);
 }
 
 void process_received_data(void) {
@@ -242,7 +246,6 @@ void process_received_data(void) {
 	// Unpack the float
 	float received_float;
 	memcpy(&received_float, &rx_buffer[8], sizeof(received_float));
-	send_response("Data received\n");
 	if(strcmp(rx_data, "speedKmh") == 0)
 	{
 		send_response("Speed received\n");
@@ -256,13 +259,23 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   /* NOTE: This function should not be modified, when the callback is needed,
            the HAL_UART_RxCpltCallback could be implemented in the user file
    */
-  send_response("UART IT interrupt\n");
   if(huart->Instance == USART2) { // Checks if correct UART instance
-	  send_response("Correct UART instance\n");
+	  __HAL_UART_CLEAR_OREFLAG(huart);  // Clear overrun error if it occurs
 	  process_received_data();
 
 	  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
   }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART2) {
+    	if (huart->ErrorCode & HAL_UART_ERROR_ORE) { // Overrun error
+    	            __HAL_UART_CLEAR_OREFLAG(huart); // Clear the overrun error flag
+    	        }
+        HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));  // Re-enable interrupt
+        printf("UART error occurred\n");
+        send_response("UART error occurred\n");
+    }
 }
 
 /* USER CODE END 4 */
