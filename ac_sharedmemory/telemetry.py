@@ -12,22 +12,28 @@ while(1):
     sm = asm.read_shared_memory()
 
     def LCD_Telemetry():
-        data = ("speedKmh", sm.Physics.rpm)
-        strName = data[0][:8].ljust(8, '\0')  # Make sure the string is exactly 8 bytes
-        lcd_telemetry = struct.pack(struct_format, strName.encode('utf-8'), data[1])
-        ser.write(lcd_telemetry)
-        print(f"Send data: {data}")
+        grabTelemetry("speedKmh", int(sm.Physics.speed_kmh))
+        grabTelemetry("gear", sm.Physics.gear)
+        grabTelemetry("rpm", sm.Physics.rpm)
 
+    def grabTelemetry(key, value):
+        data = key+str(value)
+        ser.write(data.encode())
+        #print(f"Send data: {data}")
+        response = ser.read(ser.inWaiting()).decode().strip()  # Read all available characters
+        if(response):
+            print(f"Response from STM32: {response}")
     def receive_response():
         """
         Receives a response from the STM32.
         """
         response = ser.readline().decode('utf-8').strip()  # Read until newline and decode
         print(f"Received from STM32: {response}")
+
     if (sm is not None):
         LCD_Telemetry()
-        receive_response()  # Receive the response from STM32
-        #time.sleep(1)
+        #receive_response()  # Receive the response from STM32
+        time.sleep(.1)
         
         
 
