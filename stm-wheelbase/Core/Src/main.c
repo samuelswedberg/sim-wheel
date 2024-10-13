@@ -23,7 +23,6 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
-#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFFER_SIZE 150
+#define BUFFER_SIZE 16
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,16 +44,8 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-char receivedData[BUFFER_SIZE];
-uint8_t recvIndex = 0;
-uint8_t expectedLength = 0;  // Expected length of the command
-uint8_t commandState = 0;    // State for command reception
-// UART handle
-extern UART_HandleTypeDef huart2;
-
-int speed = 0;
-int gear = 0;
-int rpm = 0;
+uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
+uint8_t command_data[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,7 +53,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-void process_command(char *command);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -103,7 +94,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart2, (uint8_t *)&receivedData[recvIndex], 1);  // Start receiving one byte
+  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));  // Enable UART reception in interrupt mode
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -235,17 +226,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-
-void blink(uint32_t dur) {
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);  // Replace GPIOA and GPIO_PIN_5 with the correct port and pin for LD2
-	send_response("Light on\n");
-	HAL_Delay(dur);                       // Wait for specified duration
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);  // Turn off the LED
-	send_response("Light off\n");
-	HAL_Delay(dur);
-}
-
 void process_command(char* cmd) {
     char debug_message[50];  // Buffer to hold debug messages
     if (strncmp(cmd, "speedKmh:", 9) == 0) {
@@ -266,99 +246,52 @@ void process_command(char* cmd) {
     }
 }
 
-
-typedef enum {
-    READ_LENGTH,
-    READ_COMMAND,
-} CommandState;
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == USART2) {  // Check if the interrupt is for USART2
-        uint8_t byte;
-        HAL_UART_Receive_IT(huart, &byte, 1);  // Continue receiving bytes
+    if (huart->Instance == USART2) {
+        // Process the received data (rx_buffer)
+    	memcpy(command_data, rx_buffer, sizeof(rx_buffer));
+        process_command(rx_buffer);  // Example function to process received data
 
-        // Debugging output
-        printf("Received byte: %c (%d), commandState: %d, recvIndex: %d\n", byte, byte, commandState, recvIndex);
-
-        switch (commandState) {
-            case READ_LENGTH:
-                // We expect two bytes for the length of the command
-                if (recvIndex < 2) {
-                    receivedData[recvIndex++] = byte;  // Store the byte
-                }
-
-                // Check if we've received both bytes for length
-                if (recvIndex == 2) {
-                    // Convert the two ASCII characters to an integer length
-                    uint8_t expectedLength = (receivedData[0] - '0') * 10 + (receivedData[1] - '0');
-                    printf("Expected length: %d\n", expectedLength);  // Debugging output
-
-                    if (expectedLength >= BUFFER_SIZE) {
-                        printf("Error: Expected length %d exceeds buffer size\n", expectedLength);
-                        recvIndex = 0;  // Reset for the next command
-                        commandState = READ_LENGTH;  // Reset state
-                    } else {
-                        // Reset index for command data and switch state
-                        recvIndex = 0;
-                        commandState = READ_COMMAND;  // Move to command state
-                    }
-                }
-                break;
-
-            case READ_COMMAND:
-                // Now receiving command data
-                if (byte == '\n') {
-                    // If a newline character is received, process the command
-                    receivedData[recvIndex] = '\0';  // Null-terminate the string
-                    printf("Full command received: %s\n", receivedData);  // Print for debugging
-
-                    process_command(receivedData);  // Process the command
-
-                    // Reset for the next command
-                    recvIndex = 0;  // Reset index for next command
-                    commandState = READ_LENGTH;  // Go back to length reading state
-
-                    // Optionally clear the receivedData buffer
-					memset(receivedData, 0, sizeof(receivedData));  // Clear the buffer
-                } else {
-                    // Regular command data
-                    if (recvIndex < BUFFER_SIZE - 1) {
-                        receivedData[recvIndex++] = byte;  // Store the byte
-                    } else {
-                        // Buffer overflow handling
-                        printf("Error: Buffer overflow detected\n");
-                        recvIndex = 0;  // Reset buffer
-                        commandState = READ_LENGTH;  // Reset state
-                    }
-                }
-                break;
-
-            default:
-                // Reset state if something goes wrong
-                recvIndex = 0;
-                commandState = READ_LENGTH;
-                break;
-        }
+        // Re-enable UART reception
+        HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
     }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+    uint32_t error_code = HAL_UART_GetError(huart);
+
+    // Identify which UART instance is causing the error (USART2 in this case)
     if (huart->Instance == USART2) {
-        if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
+
+        // Handle Overrun Error (ORE)
+        if (error_code & HAL_UART_ERROR_ORE) {
             __HAL_UART_CLEAR_OREFLAG(huart);  // Clear overrun error flag
+            // Optionally log or handle the error
+            //send_response("UART Overrun Error");
         }
 
-        if (huart->ErrorCode != HAL_UART_ERROR_NONE) {
-            // Log the error only once to avoid flooding the output
-            send_response("UART Error occurred\r\n");
+        // Handle Framing Error (FE)
+        if (error_code & HAL_UART_ERROR_FE) {
+            // Clear framing error flag automatically by reading the status register
+        	send_response("UART Framing Error");
         }
 
-        // Re-enable UART receive interrupt after error handling
-        HAL_UART_Receive_IT(&huart2, (uint8_t *)receivedData, BUFFER_SIZE);
+        // Handle Parity Error (PE)
+        if (error_code & HAL_UART_ERROR_PE) {
+            // Parity errors may indicate data corruption or mismatch in settings
+        	send_response("UART Parity Error");
+        }
+
+        // Handle Noise Error (NE)
+        if (error_code & HAL_UART_ERROR_NE) {
+            // Noise errors are usually transient but worth logging
+        	send_response("UART Noise Error");
+        }
+
+        // Recovery: Restart UART reception after clearing the error flags
+        HAL_UART_Receive_IT(huart, rx_buffer, sizeof(rx_buffer));
     }
 }
-
-
 
 /* USER CODE END 4 */
 

@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := sim_racing_wheel
+BUILD_ARTIFACT_NAME := stm-wheelbase
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-sim_racing_wheel.elf \
+stm-wheelbase.elf \
 
 MAP_FILES += \
-sim_racing_wheel.map \
+stm-wheelbase.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-sim_racing_wheel.list \
+stm-wheelbase.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: sim_racing_wheel.elf secondary-outputs
+main-build: stm-wheelbase.elf secondary-outputs
 
 # Tool invocations
-sim_racing_wheel.elf sim_racing_wheel.map: $(OBJS) $(USER_OBJS) A:\GitHub\uC\sim_racing_wheel\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "sim_racing_wheel.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"A:\GitHub\uC\sim_racing_wheel\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="sim_racing_wheel.map" -Wl,--gc-sections -static -u _printf_float --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+stm-wheelbase.elf stm-wheelbase.map: $(OBJS) $(USER_OBJS) A:\GitHub\sim-wheel\stm-wheelbase\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "stm-wheelbase.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"A:\GitHub\sim-wheel\stm-wheelbase\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm-wheelbase.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-sim_racing_wheel.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "sim_racing_wheel.list"
+stm-wheelbase.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "stm-wheelbase.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout sim_racing_wheel.elf sim_racing_wheel.list sim_racing_wheel.map
+	-$(RM) default.size.stdout stm-wheelbase.elf stm-wheelbase.list stm-wheelbase.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
