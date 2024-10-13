@@ -49,9 +49,15 @@ uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t command_data[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 volatile uint8_t command_flag = 0;
 
-volatile int gGear = 0;
-volatile int gRpm = 0;
-volatile int gSpeedKmh = 0;
+// Telemetry data
+volatile int tGear = 0;
+volatile int tRpm = 0;
+volatile int tSpeedKmh = 0;
+volatile int tHasDRS = 0;
+volatile int tDrs = 0;
+volatile int tPitLim = 0;
+volatile int tFuel = 0;
+volatile int tBrakeBias = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,20 +70,27 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void process_command(char* cmd) {
-	char debug_message[50];  // Buffer to hold debug messages
-	// Now, let's parse the JSON data
 	cJSON *json_data = cJSON_Parse(cmd);
 	if (json_data != NULL) {
 		// Extract data from the JSON object
 		cJSON *rpm = cJSON_GetObjectItem(json_data, "rpm");
 		cJSON *gear = cJSON_GetObjectItem(json_data, "gear");
-		cJSON *speed = cJSON_GetObjectItem(json_data, "speedKmh");
+		cJSON *speedKmh = cJSON_GetObjectItem(json_data, "speedKmh");
+		cJSON *hasDRS = cJSON_GetObjectItem(json_data, "hasDRS");
+		cJSON *drs = cJSON_GetObjectItem(json_data, "drs");
+		cJSON *pitLim = cJSON_GetObjectItem(json_data, "pitLim");
+		cJSON *fuel = cJSON_GetObjectItem(json_data, "fuel");
+		cJSON *brakeBias = cJSON_GetObjectItem(json_data, "brakeBias");
 
 		// Check if items were found and extract values
-		if (cJSON_IsNumber(rpm) && cJSON_IsNumber(gear) && cJSON_IsNumber(speed)) {
-			gRpm = rpm->valueint;
-			gGear = gear->valueint;
-			gSpeedKmh = speed->valueint;
+		if (cJSON_IsNumber(rpm)) { tRpm = rpm->valueint; }
+		if (cJSON_IsNumber(gear)) { tGear = gear->valueint; }
+		if (cJSON_IsNumber(speedKmh)) { tSpeedKmh = speedKmh->valueint; }
+		if (cJSON_IsNumber(hasDRS)) { tHasDRS = hasDRS->valueint; }
+		if (cJSON_IsNumber(drs)) { tDrs = drs->valueint; }
+		if (cJSON_IsNumber(pitLim)) { tPitLim = pitLim->valueint; }
+		if (cJSON_IsNumber(fuel)) { tFuel = fuel->valueint; }
+		if (cJSON_IsNumber(brakeBias)) { tBrakeBias = brakeBias->valueint; }
 		}
 		// Cleanup
 		cJSON_Delete(json_data);
@@ -85,7 +98,6 @@ void process_command(char* cmd) {
 		memset(command_data, 0, BUFFER_SIZE);
 		// Re-enable UART reception
 		HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
-	}
 }
 /* USER CODE END 0 */
 
@@ -120,7 +132,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));  // Enable UART reception in interrupt mode
+  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -129,16 +141,16 @@ int main(void)
   {
 	  if(command_flag)
 	  {
-		  process_command(command_data);  // Example function to process received data
+		  process_command(command_data);
 		  command_flag = 0;
-		  HAL_Delay(5);
-		  if(gRpm >= 7000)
+		  HAL_Delay(50); // ! Increase this is value update is slower due to more telemetry data params
+		  if(tRpm >= 7000)
 		  {
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);   // Turn on LED
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 		  }
 		  else
 		  {
-			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // Turn off LED
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 		  }
 		  // Re-enable UART reception
 		  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
