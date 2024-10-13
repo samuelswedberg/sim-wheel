@@ -18,11 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include <stdio.h>
-#include <string.h>
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define BUFFER_SIZE 16
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,8 +44,8 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-char rx_data[9];
-uint8_t rx_buffer[12];
+uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
+uint8_t command_data[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -59,7 +59,7 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 void send_response(const char* response) {
-	HAL_UART_Transmit(&huart2, (uint8_t*)response, strlen(response), HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart2, (uint8_t *)response, strlen(response), HAL_MAX_DELAY);
 }
 /* USER CODE END 0 */
 
@@ -94,6 +94,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
+  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));  // Enable UART reception in interrupt mode
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -101,8 +102,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-	  //send_response("Heartbeat\n");
-	  //HAL_Delay(1000);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -226,43 +226,71 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-
-void blink(uint32_t dur) {
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // Replace GPIOA and GPIO_PIN_5 with the correct port and pin for LD2
-	HAL_Delay(dur);                       // Wait for specified duration
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);  // Turn off the LED
+void process_command(char* cmd) {
+    char debug_message[50];  // Buffer to hold debug messages
+    if (strncmp(cmd, "speedKmh:", 9) == 0) {
+        int speedKmh = atoi(cmd + 9);  // Convert the string to an integer
+        sprintf(debug_message, "Speed received: %d\n", speedKmh);
+        send_response(debug_message);
+    } else if (strncmp(cmd, "gear:", 5) == 0) {
+        int gear = atoi(cmd + 5);  // Convert the string to an integer
+        sprintf(debug_message, "Gear received: %d\n", gear);
+        send_response(debug_message);
+    } else if (strncmp(cmd, "rpm:", 4) == 0) {
+        int rpm = atoi(cmd + 4);  // Convert the string to an integer
+        sprintf(debug_message, "RPM received: %d\n", rpm);
+        send_response(debug_message);
+    } else {
+        sprintf(debug_message, "Unknown command received: %s\n", cmd);
+        send_response(debug_message);
+    }
 }
 
-void process_received_data(void) {
-	// Unpack the string
-	memcpy(rx_data, &rx_buffer[0], 8);
-	rx_data[8] = '\0';  // Ensure it's null-terminated
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART2) {
+        // Process the received data (rx_buffer)
+    	memcpy(command_data, rx_buffer, sizeof(rx_buffer));
+        process_command(rx_buffer);  // Example function to process received data
 
-	// Unpack the float
-	float received_float;
-	memcpy(&received_float, &rx_buffer[8], sizeof(received_float));
-	send_response("Data received\n");
-	if(strcmp(rx_data, "speedKmh") == 0)
-	{
-		send_response("Speed received\n");
-	}
+        // Re-enable UART reception
+        HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+    }
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(huart);
-  /* NOTE: This function should not be modified, when the callback is needed,
-           the HAL_UART_RxCpltCallback could be implemented in the user file
-   */
-  send_response("UART IT interrupt\n");
-  if(huart->Instance == USART2) { // Checks if correct UART instance
-	  send_response("Correct UART instance\n");
-	  process_received_data();
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+    uint32_t error_code = HAL_UART_GetError(huart);
 
-	  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
-  }
+    // Identify which UART instance is causing the error (USART2 in this case)
+    if (huart->Instance == USART2) {
+
+        // Handle Overrun Error (ORE)
+        if (error_code & HAL_UART_ERROR_ORE) {
+            __HAL_UART_CLEAR_OREFLAG(huart);  // Clear overrun error flag
+            // Optionally log or handle the error
+            //send_response("UART Overrun Error");
+        }
+
+        // Handle Framing Error (FE)
+        if (error_code & HAL_UART_ERROR_FE) {
+            // Clear framing error flag automatically by reading the status register
+        	send_response("UART Framing Error");
+        }
+
+        // Handle Parity Error (PE)
+        if (error_code & HAL_UART_ERROR_PE) {
+            // Parity errors may indicate data corruption or mismatch in settings
+        	send_response("UART Parity Error");
+        }
+
+        // Handle Noise Error (NE)
+        if (error_code & HAL_UART_ERROR_NE) {
+            // Noise errors are usually transient but worth logging
+        	send_response("UART Noise Error");
+        }
+
+        // Recovery: Restart UART reception after clearing the error flags
+        HAL_UART_Receive_IT(huart, rx_buffer, sizeof(rx_buffer));
+    }
 }
 
 /* USER CODE END 4 */
