@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include <cJSON.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BUFFER_SIZE 16
+#define BUFFER_SIZE 256
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,6 +47,11 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t command_data[BUFFER_SIZE];  // Buffer to hold a copy of the received command
+volatile uint8_t command_flag = 0;
+
+volatile int gGear = 0;
+volatile int gRpm = 0;
+volatile int gSpeedKmh = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -53,13 +59,33 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void send_response(const char* response) {
-	HAL_UART_Transmit(&huart2, (uint8_t *)response, strlen(response), HAL_MAX_DELAY);
+void process_command(char* cmd) {
+	char debug_message[50];  // Buffer to hold debug messages
+	// Now, let's parse the JSON data
+	cJSON *json_data = cJSON_Parse(cmd);
+	if (json_data != NULL) {
+		// Extract data from the JSON object
+		cJSON *rpm = cJSON_GetObjectItem(json_data, "rpm");
+		cJSON *gear = cJSON_GetObjectItem(json_data, "gear");
+		cJSON *speed = cJSON_GetObjectItem(json_data, "speedKmh");
+
+		// Check if items were found and extract values
+		if (cJSON_IsNumber(rpm) && cJSON_IsNumber(gear) && cJSON_IsNumber(speed)) {
+			gRpm = rpm->valueint;
+			gGear = gear->valueint;
+			gSpeedKmh = speed->valueint;
+		}
+		// Cleanup
+		cJSON_Delete(json_data);
+		// Clear the buffer for the next message
+		memset(command_data, 0, BUFFER_SIZE);
+		// Re-enable UART reception
+		HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+	}
 }
 /* USER CODE END 0 */
 
@@ -101,6 +127,22 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(command_flag)
+	  {
+		  process_command(command_data);  // Example function to process received data
+		  command_flag = 0;
+		  HAL_Delay(5);
+		  if(gRpm >= 7000)
+		  {
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);   // Turn on LED
+		  }
+		  else
+		  {
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET); // Turn off LED
+		  }
+		  // Re-enable UART reception
+		  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -171,7 +213,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 921600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -226,34 +268,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void process_command(char* cmd) {
-    char debug_message[50];  // Buffer to hold debug messages
-    if (strncmp(cmd, "speedKmh:", 9) == 0) {
-        int speedKmh = atoi(cmd + 9);  // Convert the string to an integer
-        sprintf(debug_message, "Speed received: %d\n", speedKmh);
-        send_response(debug_message);
-    } else if (strncmp(cmd, "gear:", 5) == 0) {
-        int gear = atoi(cmd + 5);  // Convert the string to an integer
-        sprintf(debug_message, "Gear received: %d\n", gear);
-        send_response(debug_message);
-    } else if (strncmp(cmd, "rpm:", 4) == 0) {
-        int rpm = atoi(cmd + 4);  // Convert the string to an integer
-        sprintf(debug_message, "RPM received: %d\n", rpm);
-        send_response(debug_message);
-    } else {
-        sprintf(debug_message, "Unknown command received: %s\n", cmd);
-        send_response(debug_message);
-    }
-}
-
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
         // Process the received data (rx_buffer)
     	memcpy(command_data, rx_buffer, sizeof(rx_buffer));
-        process_command(rx_buffer);  // Example function to process received data
+    	command_flag = 1; // Reset flag
+        // Clear the buffer for the next message
+        memset(rx_buffer, 0, BUFFER_SIZE);
 
-        // Re-enable UART reception
-        HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
     }
 }
 
@@ -273,19 +295,19 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
         // Handle Framing Error (FE)
         if (error_code & HAL_UART_ERROR_FE) {
             // Clear framing error flag automatically by reading the status register
-        	send_response("UART Framing Error");
+        	//send_response("UART Framing Error");
         }
 
         // Handle Parity Error (PE)
         if (error_code & HAL_UART_ERROR_PE) {
             // Parity errors may indicate data corruption or mismatch in settings
-        	send_response("UART Parity Error");
+        	//send_response("UART Parity Error");
         }
 
         // Handle Noise Error (NE)
         if (error_code & HAL_UART_ERROR_NE) {
             // Noise errors are usually transient but worth logging
-        	send_response("UART Noise Error");
+        	//send_response("UART Noise Error");
         }
 
         // Recovery: Restart UART reception after clearing the error flags

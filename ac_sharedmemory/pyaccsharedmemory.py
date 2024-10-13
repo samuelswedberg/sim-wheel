@@ -249,6 +249,7 @@ class PhysicsMap:
     fuel: float
     gear: int
     rpm: int
+    drs: int
     steer_angle: float
     speed_kmh: float
     velocity: Vector3f
@@ -432,6 +433,7 @@ class StaticsMap:
     sector_count: int
     max_rpm: int
     max_fuel: float
+    hasDRS: int
     penalty_enabled: bool
     aid_fuel_rate: float
     aid_tyre_rate: float
@@ -639,6 +641,7 @@ def read_physic_map(physic_map: accSM) -> PhysicsMap:
         temp["fuel"],
         temp["gear"],
         temp["rpm"],
+        temp["drs"],
         temp["steerAngle"],
         temp["speedKmh"],
         Vector3f(*temp["velocity"]),
@@ -958,6 +961,7 @@ def read_static_map(static_map: accSM) -> StaticsMap:
         temp["sectorCount"],
         temp["maxRpm"],
         temp["maxFuel"],
+        temp["hasDRS"],
         bool(temp["penaltiesEnabled"]),
         temp["aidFuelRate"],
         temp["aidTireRate"],
