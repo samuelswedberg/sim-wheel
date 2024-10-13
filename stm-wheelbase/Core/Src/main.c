@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define BUFFER_SIZE 150
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -45,11 +45,13 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-#define BUFFER_SIZE 256
-char rx_data[20];
-char rx_buffer[BUFFER_SIZE];
-volatile uint16_t head = 0;  // Points to the next available position
-volatile uint16_t tail = 0;  // Points to the oldest data
+char receivedData[BUFFER_SIZE];
+uint8_t recvIndex = 0;
+uint8_t expectedLength = 0;  // Expected length of the command
+uint8_t commandState = 0;    // State for command reception
+// UART handle
+extern UART_HandleTypeDef huart2;
+
 int speed = 0;
 int gear = 0;
 int rpm = 0;
@@ -60,7 +62,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+void process_command(char *command);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -101,15 +103,13 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_UART_Receive_IT(&huart2, (uint8_t *)rx_data, sizeof(rx_data));
+  HAL_UART_Receive_IT(&huart2, (uint8_t *)&receivedData[recvIndex], 1);  // Start receiving one byte
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  send_response("Heartbeat\n");
-	  HAL_Delay(5000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -246,85 +246,118 @@ void blink(uint32_t dur) {
 	HAL_Delay(dur);
 }
 
-void process_received_data(char *data) {
-	if(strncmp(data, "speedKmh", 8) == 0)
-	{
-		speed = atoi(&data[8]);  // Convert the remaining part to an integer
-		send_response("Speed received\n");
-	}
-	else if(strncmp(data, "gear", 4) == 0)
-	{
-		gear = atoi(&data[4]);  // Convert the remaining part to an integer
-		send_response("Gear received\n");
-	}
-	else if(strncmp(data, "rpm", 3) == 0)
-	{
-		rpm = atoi(&data[3]);  // Convert the remaining part to an integer
-		send_response("Rpm received\n");
-	}
-	else
-	{
-		send_response("Unknown data was sent\n");
-	}
+void process_command(char* cmd) {
+    char debug_message[50];  // Buffer to hold debug messages
+    if (strncmp(cmd, "speedKmh:", 9) == 0) {
+        int speedKmh = atoi(cmd + 9);  // Convert the string to an integer
+        sprintf(debug_message, "Speed received: %d\n", speedKmh);
+        send_response(debug_message);
+    } else if (strncmp(cmd, "gear:", 5) == 0) {
+        int gear = atoi(cmd + 5);  // Convert the string to an integer
+        sprintf(debug_message, "Gear received: %d\n", gear);
+        send_response(debug_message);
+    } else if (strncmp(cmd, "rpm:", 4) == 0) {
+        int rpm = atoi(cmd + 4);  // Convert the string to an integer
+        sprintf(debug_message, "RPM received: %d\n", rpm);
+        send_response(debug_message);
+    } else {
+        sprintf(debug_message, "Unknown command received: %s\n", cmd);
+        send_response(debug_message);
+    }
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(huart);
-  /* NOTE: This function should not be modified, when the callback is needed,
-           the HAL_UART_RxCpltCallback could be implemented in the user file
-   */
-  if(huart->Instance == USART2) { // Checks if correct UART instance
-	  // Store received data in the circular buffer
-	  rx_buffer[head] = rx_data[0];  // Store the received character
-	  head = (head + 1) % BUFFER_SIZE; // Update head position
 
-	  // Check if the buffer is full
-	  if (head == tail) {
-		  // Handle buffer overflow (e.g., overwrite old data or set an error flag)
-		  tail = (tail + 1) % BUFFER_SIZE; // Optionally overwrite the oldest data
-	  }
+typedef enum {
+    READ_LENGTH,
+    READ_COMMAND,
+} CommandState;
 
-	  // Buffer is full, handle the overflow (e.g., discard old data, set an error flag, etc.)
-	  process_received_data(rx_data);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == USART2) {  // Check if the interrupt is for USART2
+        uint8_t byte;
+        HAL_UART_Receive_IT(huart, &byte, 1);  // Continue receiving bytes
 
-	  // Reset the buffer after processing
-	  memset(rx_data, 0, sizeof(rx_data));
+        // Debugging output
+        printf("Received byte: %c (%d), commandState: %d, recvIndex: %d\n", byte, byte, commandState, recvIndex);
 
-	  HAL_UART_Receive_IT(&huart2, (uint8_t *)rx_data, sizeof(rx_data));
-  }
+        switch (commandState) {
+            case READ_LENGTH:
+                // We expect two bytes for the length of the command
+                if (recvIndex < 2) {
+                    receivedData[recvIndex++] = byte;  // Store the byte
+                }
+
+                // Check if we've received both bytes for length
+                if (recvIndex == 2) {
+                    // Convert the two ASCII characters to an integer length
+                    uint8_t expectedLength = (receivedData[0] - '0') * 10 + (receivedData[1] - '0');
+                    printf("Expected length: %d\n", expectedLength);  // Debugging output
+
+                    if (expectedLength >= BUFFER_SIZE) {
+                        printf("Error: Expected length %d exceeds buffer size\n", expectedLength);
+                        recvIndex = 0;  // Reset for the next command
+                        commandState = READ_LENGTH;  // Reset state
+                    } else {
+                        // Reset index for command data and switch state
+                        recvIndex = 0;
+                        commandState = READ_COMMAND;  // Move to command state
+                    }
+                }
+                break;
+
+            case READ_COMMAND:
+                // Now receiving command data
+                if (byte == '\n') {
+                    // If a newline character is received, process the command
+                    receivedData[recvIndex] = '\0';  // Null-terminate the string
+                    printf("Full command received: %s\n", receivedData);  // Print for debugging
+
+                    process_command(receivedData);  // Process the command
+
+                    // Reset for the next command
+                    recvIndex = 0;  // Reset index for next command
+                    commandState = READ_LENGTH;  // Go back to length reading state
+
+                    // Optionally clear the receivedData buffer
+					memset(receivedData, 0, sizeof(receivedData));  // Clear the buffer
+                } else {
+                    // Regular command data
+                    if (recvIndex < BUFFER_SIZE - 1) {
+                        receivedData[recvIndex++] = byte;  // Store the byte
+                    } else {
+                        // Buffer overflow handling
+                        printf("Error: Buffer overflow detected\n");
+                        recvIndex = 0;  // Reset buffer
+                        commandState = READ_LENGTH;  // Reset state
+                    }
+                }
+                break;
+
+            default:
+                // Reset state if something goes wrong
+                recvIndex = 0;
+                commandState = READ_LENGTH;
+                break;
+        }
+    }
 }
 
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
-        char errorMsg[50];  // Buffer to store the error message
-
-        // Check for specific UART errors
-        if (huart->ErrorCode & HAL_UART_ERROR_PE) {
-            strcpy(errorMsg, "UART Parity Error occurred\r\n");
-        }
-        else if (huart->ErrorCode & HAL_UART_ERROR_FE) {
-            strcpy(errorMsg, "UART Framing Error occurred\r\n");
-        }
-        else if (huart->ErrorCode & HAL_UART_ERROR_NE) {
-            strcpy(errorMsg, "UART Noise Error occurred\r\n");
-        }
-        else if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
-            strcpy(errorMsg, "UART Overrun Error occurred\r\n");
-            __HAL_UART_CLEAR_OREFLAG(huart);  // Clear the overrun error flag
-        }
-        else {
-            strcpy(errorMsg, "Unknown UART Error occurred\r\n");
+        if (huart->ErrorCode & HAL_UART_ERROR_ORE) {
+            __HAL_UART_CLEAR_OREFLAG(huart);  // Clear overrun error flag
         }
 
-        // Re-enable the UART receive interrupt
-        HAL_UART_Receive_IT(&huart2, (uint8_t *)rx_data, sizeof(rx_data));
+        if (huart->ErrorCode != HAL_UART_ERROR_NONE) {
+            // Log the error only once to avoid flooding the output
+            send_response("UART Error occurred\r\n");
+        }
 
-        // Transmit the error message via UART
-        HAL_UART_Transmit(&huart2, (uint8_t *)errorMsg, strlen(errorMsg), HAL_MAX_DELAY);
+        // Re-enable UART receive interrupt after error handling
+        HAL_UART_Receive_IT(&huart2, (uint8_t *)receivedData, BUFFER_SIZE);
     }
 }
+
 
 
 /* USER CODE END 4 */
