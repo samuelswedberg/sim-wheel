@@ -520,70 +520,45 @@ void StartSPISend(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-//  // Wait for notification from UART callback
-//	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-//	int32_t dataToSend[NUM_INTS + 1]; // 8 integers + 1 float
-//	HAL_StatusTypeDef status;
-//
-//	dataToSend[0] = tGear;
-//	dataToSend[1] = tRpm;
-//	dataToSend[2] = tSpeedKmh;
-//	dataToSend[3] = tHasDRS;
-//	dataToSend[4] = tDrs;
-//	dataToSend[5] = tPitLim;
-//	dataToSend[6] = tFuel;
-//	dataToSend[7] = tBrakeBias;
-//
-//	// Populate the integer array
-//	for (int i = 0; i < NUM_INTS; i++) {
-//	  dataToSend[i] = i; // Example integers: 0, 1, 2, ..., 7
-//	}
-//	// Assign the float value to the last element
-//	memcpy(&dataToSend[NUM_INTS], &tForceFB, FLOAT_SIZE);
-//
-//	for (;;) {
-//	  // Chip Select pin low to start transmission
-//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Adjust GPIO port and pin
-//
-//	  // Transmit data
-//	  status = HAL_SPI_Transmit(&hspi2, (uint8_t*)dataToSend, DATA_SIZE, HAL_MAX_DELAY);
-//
-//	  // Chip Select pin high to end transmission
-//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-//
-//	  // Check for errors
-//	  if (status != HAL_OK) {
-//		  // Handle error
-//	  }
-//
-//      // Delay for a while to avoid flooding the Pico
-//      vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
+  // Wait for notification from UART callback
+	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	int32_t dataToSend[NUM_INTS + 1]; // 8 integers + 1 float
+	HAL_StatusTypeDef status;
 
-	uint8_t spitxData = 0x55; // Test byte to send
-	uint8_t spirxData;
+	dataToSend[0] = tGear;
+	dataToSend[1] = tRpm;
+	dataToSend[2] = tSpeedKmh;
+	dataToSend[3] = tHasDRS;
+	dataToSend[4] = tDrs;
+	dataToSend[5] = tPitLim;
+	dataToSend[6] = tFuel;
+	dataToSend[7] = tBrakeBias;
 
-	// Set CS low to start communication
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
-	vTaskDelay(pdMS_TO_TICKS(1)); // Small delay to stabilize CS
-	// Send test byte
-	HAL_SPI_Transmit(&hspi2, &spitxData, 1, HAL_MAX_DELAY);
-
-	// Receive acknowledgment byte
-	HAL_SPI_Receive(&hspi2, &spirxData, 1, HAL_MAX_DELAY);
-
-	// Set CS high to end communication
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-	vTaskDelay(pdMS_TO_TICKS(10)); // Delay to allow processing on the Pico
-	// Check if the acknowledgment is correct
-	if (spirxData == 0xAA) {
-	  // Successful communication
-	  printf("Data sent: 0x%02X, Acknowledgment received: 0x%02X\n", spitxData, spirxData);
-	} else {
-	  // Communication error
-	  printf("Error: Expected 0xAA, received 0x%02X\n", spirxData);
+	// Populate the integer array
+	for (int i = 0; i < NUM_INTS; i++) {
+	  dataToSend[i] = i; // Example integers: 0, 1, 2, ..., 7
 	}
+	// Assign the float value to the last element
+	memcpy(&dataToSend[NUM_INTS], &tForceFB, FLOAT_SIZE);
 
-	vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for a second before the next transmission
+	for (;;) {
+	  // Chip Select pin low to start transmission
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Adjust GPIO port and pin
+
+	  // Transmit data
+	  status = HAL_SPI_Transmit(&hspi2, (uint8_t*)dataToSend, DATA_SIZE, HAL_MAX_DELAY);
+
+	  // Chip Select pin high to end transmission
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+
+	  // Check for errors
+	  if (status != HAL_OK) {
+		  // Handle error
+	  }
+
+      // Delay for a while to avoid flooding the Pico
+      vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
+	}
     osDelay(1);
   }
   /* USER CODE END StartSPISend */

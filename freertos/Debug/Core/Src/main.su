@@ -10,6 +10,6 @@
 ../Core/Src/main.c:446:6:StartDefaultTask	16	static
 ../Core/Src/main.c:464:6:StartTelemetryTask	16	static
 ../Core/Src/main.c:493:6:StartHeartbeatTask	16	static
-../Core/Src/main.c:517:6:StartSPISend	24	static
-../Core/Src/main.c:600:6:HAL_TIM_PeriodElapsedCallback	16	static
-../Core/Src/main.c:617:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:517:6:StartSPISend	64	static
+../Core/Src/main.c:575:6:HAL_TIM_PeriodElapsedCallback	16	static
+../Core/Src/main.c:592:6:Error_Handler	4	static,ignoring_inline_asm

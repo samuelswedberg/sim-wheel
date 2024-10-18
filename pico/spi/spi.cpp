@@ -62,54 +62,31 @@ int main()
     #endif
     // For more pio examples see https://github.com/raspberrypi/pico-examples/tree/master/pio
 
-    //uint8_t dataReceived[DATA_SIZE];
-    uint8_t dataReceived;
+    uint8_t dataReceived[DATA_SIZE];
     while (true) {
-        //         // Wait for CS to go low (indicating a transmission is starting)
-        //     printf("Waiting for CS to go low\n");
-        // while (gpio_get(PIN_CS)) {
-        //     printf("Wait till low\n");
-        //     // Wait until CS is low
-        // }
-        // printf("CS went high\n");
-        // // Read the data into the buffer
-        // spi_read_blocking(SPI_PORT, 0, dataReceived, DATA_SIZE);
-
-        // // Process the received data
-        // int32_t integers[NUM_INTS];
-        // float receivedFloat;
-
-        // // Unpack the received data into integers and float
-        // for (int i = 0; i < NUM_INTS; i++) {
-        //     integers[i] = *((int32_t*)&dataReceived[i * sizeof(int)]);
-        // }
-        // receivedFloat = *((float*)&dataReceived[NUM_INTS * sizeof(int)]);
-
-        // // Print the received integers and float
-        // printf("Received integers: ");
-        // for (int i = 0; i < NUM_INTS; i++) {
-        //     printf("%d ", integers[i]);
-        // }
-        // printf("\nReceived float: %f\n", receivedFloat);
-
-        // // Wait until CS is high again (end of transmission)
-        // while (!gpio_get(PIN_CS)) {
-        //     printf("Wait till high\n");
-        //     // Wait until CS is high
-        // }
-        // printf("End of transmission\n");
-
-        // Wait for CS to go low (indicating a transmission is starting)
+                // Wait for CS to go low (indicating a transmission is starting)
         while (gpio_get(PIN_CS)) {
             // Wait until CS is low
         }
-        printf("received data\n");
         // Read the data into the buffer
-        spi_read_blocking(SPI_PORT, 0, &dataReceived, 1); // Read 1 byte
+        spi_read_blocking(SPI_PORT, 0, dataReceived, DATA_SIZE);
 
-        // Send acknowledgment byte
-        uint8_t ackData = 0xAA; // Acknowledgment byte
-        spi_write_blocking(SPI_PORT, &ackData, 1); // Send acknowledgment
+        // Process the received data
+        int32_t integers[NUM_INTS];
+        float receivedFloat;
+
+        // Unpack the received data into integers and float
+        for (int i = 0; i < NUM_INTS; i++) {
+            integers[i] = *((int32_t*)&dataReceived[i * sizeof(int)]);
+        }
+        receivedFloat = *((float*)&dataReceived[NUM_INTS * sizeof(int)]);
+
+        // Print the received integers and float
+        printf("Received integers: ");
+        for (int i = 0; i < NUM_INTS; i++) {
+            printf("%d ", integers[i]);
+        }
+        printf("\nReceived float: %f\n", receivedFloat);
 
         // Wait until CS is high again (end of transmission)
         while (!gpio_get(PIN_CS)) {
