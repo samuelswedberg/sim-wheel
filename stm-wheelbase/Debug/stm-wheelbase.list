@@ -4494,8 +4494,8 @@ int main(void)
  8002280:	4b10      	ldr	r3, [pc, #64]	@ (80022c4 <main+0x74>)
  8002282:	2200      	movs	r2, #0
  8002284:	701a      	strb	r2, [r3, #0]
-		  HAL_Delay(50); // ! Increase this is value update is slower due to more telemetry data params
- 8002286:	2032      	movs	r0, #50	@ 0x32
+		  HAL_Delay(100); // ! Increase this is value update is slower due to more telemetry data params
+ 8002286:	2064      	movs	r0, #100	@ 0x64
  8002288:	f000 fbaa 	bl	80029e0 <HAL_Delay>
 		  if(tRpm >= 7000)
  800228c:	4b0f      	ldr	r3, [pc, #60]	@ (80022cc <main+0x7c>)
@@ -4692,9 +4692,9 @@ static void MX_USART2_UART_Init(void)
  80023b4:	4b11      	ldr	r3, [pc, #68]	@ (80023fc <MX_USART2_UART_Init+0x4c>)
  80023b6:	4a12      	ldr	r2, [pc, #72]	@ (8002400 <MX_USART2_UART_Init+0x50>)
  80023b8:	601a      	str	r2, [r3, #0]
-  huart2.Init.BaudRate = 921600;
+  huart2.Init.BaudRate = 115200;
  80023ba:	4b10      	ldr	r3, [pc, #64]	@ (80023fc <MX_USART2_UART_Init+0x4c>)
- 80023bc:	f44f 2261 	mov.w	r2, #921600	@ 0xe1000
+ 80023bc:	f44f 32e1 	mov.w	r2, #115200	@ 0x1c200
  80023c0:	605a      	str	r2, [r3, #4]
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
  80023c2:	4b0e      	ldr	r3, [pc, #56]	@ (80023fc <MX_USART2_UART_Init+0x4c>)
