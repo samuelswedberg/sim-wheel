@@ -46,7 +46,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
-uint8_t command_data[BUFFER_SIZE];  // Buffer to hold a copy of the received command
+uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 volatile uint8_t command_flag = 0;
 
 // Telemetry data
@@ -95,7 +95,7 @@ void process_command(char* cmd) {
 		// Cleanup
 		cJSON_Delete(json_data);
 		// Clear the buffer for the next message
-		memset(command_data, 0, BUFFER_SIZE);
+		memset(gCommandData, 0, BUFFER_SIZE);
 		// Re-enable UART reception
 		HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
 }
@@ -141,9 +141,9 @@ int main(void)
   {
 	  if(command_flag)
 	  {
-		  process_command(command_data);
+		  process_command(gCommandData);
 		  command_flag = 0;
-		  HAL_Delay(50); // ! Increase this is value update is slower due to more telemetry data params
+		  HAL_Delay(100); // ! Increase this is value update is slower due to more telemetry data params
 		  if(tRpm >= 7000)
 		  {
 			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
@@ -225,7 +225,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 921600;
+  huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
@@ -283,7 +283,7 @@ static void MX_GPIO_Init(void)
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
         // Process the received data (rx_buffer)
-    	memcpy(command_data, rx_buffer, sizeof(rx_buffer));
+    	memcpy(gCommandData, rx_buffer, sizeof(rx_buffer));
     	command_flag = 1; // Reset flag
         // Clear the buffer for the next message
         memset(rx_buffer, 0, BUFFER_SIZE);
