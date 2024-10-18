@@ -39,6 +39,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFFER_SIZE 256
+#define NUM_INTS 8
+#define FLOAT_SIZE sizeof(float)
+#define DATA_SIZE (NUM_INTS * sizeof(int) + FLOAT_SIZE)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,6 +57,7 @@ UART_HandleTypeDef huart2;
 osThreadId defaultTaskHandle;
 osThreadId telemetryTaskHandle;
 osThreadId heartbeatTaskHandle;
+osThreadId SPISendDataTaskHandle;
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
@@ -70,8 +74,6 @@ volatile int tFuel = 0;
 volatile int tBrakeBias = 0;
 volatile float tForceFB = 0;
 
-// Task Handles
-TaskHandle_t telemetryTaskHandle = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -82,6 +84,7 @@ static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTelemetryTask(void const * argument);
 void StartHeartbeatTask(void const * argument);
+void StartSPISend(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -198,6 +201,10 @@ int main(void)
   osThreadDef(heartbeatTask, StartHeartbeatTask, osPriorityLow, 0, 128);
   heartbeatTaskHandle = osThreadCreate(osThread(heartbeatTask), NULL);
 
+  /* definition and creation of SPISendDataTask */
+  osThreadDef(SPISendDataTask, StartSPISend, osPriorityRealtime, 0, 128);
+  SPISendDataTaskHandle = osThreadCreate(osThread(SPISendDataTask), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -294,7 +301,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -360,7 +367,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -368,12 +375,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : PA4 LD2_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -469,6 +476,8 @@ void StartTelemetryTask(void const * argument)
 	vTaskDelay(pdMS_TO_TICKS(100)); // Adjust delay as needed
 	// Re-enable UART reception
 	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+
+	osSignalSet(SPISendDataTaskHandle, 0x01);  // Set signal for telemetry task
     osDelay(1);
   }
   /* USER CODE END StartTelemetryTask */
@@ -496,6 +505,88 @@ void StartHeartbeatTask(void const * argument)
     osDelay(1);
   }
   /* USER CODE END StartHeartbeatTask */
+}
+
+/* USER CODE BEGIN Header_StartSPISend */
+/**
+* @brief Function implementing the SPISendDataTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSPISend */
+void StartSPISend(void const * argument)
+{
+  /* USER CODE BEGIN StartSPISend */
+  /* Infinite loop */
+  for(;;)
+  {
+//  // Wait for notification from UART callback
+//	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+//	int32_t dataToSend[NUM_INTS + 1]; // 8 integers + 1 float
+//	HAL_StatusTypeDef status;
+//
+//	dataToSend[0] = tGear;
+//	dataToSend[1] = tRpm;
+//	dataToSend[2] = tSpeedKmh;
+//	dataToSend[3] = tHasDRS;
+//	dataToSend[4] = tDrs;
+//	dataToSend[5] = tPitLim;
+//	dataToSend[6] = tFuel;
+//	dataToSend[7] = tBrakeBias;
+//
+//	// Populate the integer array
+//	for (int i = 0; i < NUM_INTS; i++) {
+//	  dataToSend[i] = i; // Example integers: 0, 1, 2, ..., 7
+//	}
+//	// Assign the float value to the last element
+//	memcpy(&dataToSend[NUM_INTS], &tForceFB, FLOAT_SIZE);
+//
+//	for (;;) {
+//	  // Chip Select pin low to start transmission
+//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Adjust GPIO port and pin
+//
+//	  // Transmit data
+//	  status = HAL_SPI_Transmit(&hspi2, (uint8_t*)dataToSend, DATA_SIZE, HAL_MAX_DELAY);
+//
+//	  // Chip Select pin high to end transmission
+//	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+//
+//	  // Check for errors
+//	  if (status != HAL_OK) {
+//		  // Handle error
+//	  }
+//
+//      // Delay for a while to avoid flooding the Pico
+//      vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
+
+	uint8_t spitxData = 0x55; // Test byte to send
+	uint8_t spirxData;
+
+	// Set CS low to start communication
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET);
+	vTaskDelay(pdMS_TO_TICKS(1)); // Small delay to stabilize CS
+	// Send test byte
+	HAL_SPI_Transmit(&hspi2, &spitxData, 1, HAL_MAX_DELAY);
+
+	// Receive acknowledgment byte
+	HAL_SPI_Receive(&hspi2, &spirxData, 1, HAL_MAX_DELAY);
+
+	// Set CS high to end communication
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+	vTaskDelay(pdMS_TO_TICKS(10)); // Delay to allow processing on the Pico
+	// Check if the acknowledgment is correct
+	if (spirxData == 0xAA) {
+	  // Successful communication
+	  printf("Data sent: 0x%02X, Acknowledgment received: 0x%02X\n", spitxData, spirxData);
+	} else {
+	  // Communication error
+	  printf("Error: Expected 0xAA, received 0x%02X\n", spirxData);
+	}
+
+	vTaskDelay(pdMS_TO_TICKS(1000)); // Wait for a second before the next transmission
+    osDelay(1);
+  }
+  /* USER CODE END StartSPISend */
 }
 
 /**
