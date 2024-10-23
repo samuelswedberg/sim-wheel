@@ -33,6 +33,19 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct __attribute__((__packed__)) {
+	int32_t  tRpm;
+	int32_t  tGear;
+	int32_t  tSpeedKmh;
+	int32_t  tHasDRS;
+	int32_t  tDrs;
+	int32_t  tPitLim;
+	int32_t  tFuel;
+	int32_t  tBrakeBias;
+	int32_t tForceFB;
+} telemetry_packet;
+
+telemetry_packet telemetry_data;
 
 /* USER CODE END PTD */
 
@@ -62,17 +75,6 @@ osThreadId SPISendDataTaskHandle;
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received command
-
-// Telemetry data
-volatile int tGear = 0;
-volatile int tRpm = 0;
-volatile int tSpeedKmh = 0;
-volatile int tHasDRS = 0;
-volatile int tDrs = 0;
-volatile int tPitLim = 0;
-volatile int tFuel = 0;
-volatile int tBrakeBias = 0;
-volatile float tForceFB = 0;
 
 /* USER CODE END PV */
 
@@ -107,15 +109,15 @@ void process_command(char* cmd) {
 		cJSON *forceFB = cJSON_GetObjectItem(json_data, "forceFB");
 
 		// Check if items were found and extract values
-		if (cJSON_IsNumber(rpm)) { tRpm = rpm->valueint; }
-		if (cJSON_IsNumber(gear)) { tGear = gear->valueint; }
-		if (cJSON_IsNumber(speedKmh)) { tSpeedKmh = speedKmh->valueint; }
-		if (cJSON_IsNumber(hasDRS)) { tHasDRS = hasDRS->valueint; }
-		if (cJSON_IsNumber(drs)) { tDrs = drs->valueint; }
-		if (cJSON_IsNumber(pitLim)) { tPitLim = pitLim->valueint; }
-		if (cJSON_IsNumber(fuel)) { tFuel = fuel->valueint; }
-		if (cJSON_IsNumber(brakeBias)) { tBrakeBias = brakeBias->valueint; }
-		if (cJSON_IsNumber(forceFB)) { tForceFB = (float)forceFB->valuedouble; }
+		if (cJSON_IsNumber(rpm)) { telemetry_data.tRpm = rpm->valueint; }
+		if (cJSON_IsNumber(gear)) { telemetry_data.tGear = gear->valueint; }
+		if (cJSON_IsNumber(speedKmh)) { telemetry_data.tSpeedKmh = speedKmh->valueint; }
+		if (cJSON_IsNumber(hasDRS)) { telemetry_data.tHasDRS = hasDRS->valueint; }
+		if (cJSON_IsNumber(drs)) { telemetry_data.tDrs = drs->valueint; }
+		if (cJSON_IsNumber(pitLim)) { telemetry_data.tPitLim = pitLim->valueint; }
+		if (cJSON_IsNumber(fuel)) { telemetry_data.tFuel = fuel->valueint; }
+		if (cJSON_IsNumber(brakeBias)) { telemetry_data.tBrakeBias = brakeBias->valueint; }
+		if (cJSON_IsNumber(forceFB)) { telemetry_data.tForceFB = (float)forceFB->valuedouble; }
 		}
 		// Cleanup
 		cJSON_Delete(json_data);
@@ -169,7 +171,16 @@ int main(void)
   MX_SPI2_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  telemetry_data.tRpm = 0;
+  telemetry_data.tRpm = 0;
+  telemetry_data.tSpeedKmh = 0;
+  telemetry_data.tHasDRS = 0;
+  telemetry_data.tDrs = 0;
+  telemetry_data.tPitLim = 0;
+  telemetry_data.tFuel = 0;
+  telemetry_data.tBrakeBias = 0;
+  telemetry_data.tForceFB = 0;
+  memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -301,7 +312,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -434,6 +445,33 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     }
 }
 
+void packTelemetryPacket(telemetry_packet *packet, uint8_t *buffer) {
+    // Ensure buffer is large enough
+    if (buffer == NULL) return;  // Add appropriate size check if needed
+
+    size_t offset = 0;
+
+    // Helper macro to pack data in little-endian
+    #define PACK_INT32(value) \
+        memcpy(buffer + offset, &value, sizeof(value)); \
+        offset += sizeof(value);
+
+    #define PACK_FLOAT(value) \
+        memcpy(buffer + offset, &value, sizeof(value)); \
+        offset += sizeof(value);
+
+    // Pack the structure fields into the buffer
+    PACK_INT32(packet->tRpm);
+    PACK_INT32(packet->tGear);
+    PACK_INT32(packet->tSpeedKmh);
+    PACK_INT32(packet->tHasDRS);
+    PACK_INT32(packet->tDrs);
+    PACK_INT32(packet->tPitLim);
+    PACK_INT32(packet->tFuel);
+    PACK_INT32(packet->tBrakeBias);
+    PACK_INT32(packet->tForceFB);
+}
+
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -497,7 +535,7 @@ void StartHeartbeatTask(void const * argument)
   for(;;)
   {
 	// Perform actions based on telemetry data
-	if (tRpm >= 7000) {
+	if (telemetry_data.tRpm >= 7000) {
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
 	} else {
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
@@ -518,48 +556,30 @@ void StartSPISend(void const * argument)
 {
   /* USER CODE BEGIN StartSPISend */
   /* Infinite loop */
+	HAL_StatusTypeDef status;
+	uint8_t buffer[sizeof(telemetry_packet)];
   for(;;)
   {
   // Wait for notification from UART callback
 	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-	int32_t dataToSend[NUM_INTS + 1]; // 8 integers + 1 float
-	HAL_StatusTypeDef status;
+	packTelemetryPacket(&telemetry_data, buffer);
 
-	dataToSend[0] = tGear;
-	dataToSend[1] = tRpm;
-	dataToSend[2] = tSpeedKmh;
-	dataToSend[3] = tHasDRS;
-	dataToSend[4] = tDrs;
-	dataToSend[5] = tPitLim;
-	dataToSend[6] = tFuel;
-	dataToSend[7] = tBrakeBias;
+	// Chip Select pin low to start transmission
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Adjust GPIO port and pin
+	//HAL_Delay(1); // 1 millisecond delay (or adjust as needed)
+	// Transmit data
+	status = HAL_SPI_Transmit(&hspi2, buffer, sizeof(telemetry_packet), HAL_MAX_DELAY);
 
-	// Populate the integer array
-	for (int i = 0; i < NUM_INTS; i++) {
-	  dataToSend[i] = i; // Example integers: 0, 1, 2, ..., 7
+	// Chip Select pin high to end transmission
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+
+	// Check for errors
+	if (status != HAL_OK) {
+		send_response("SPI Transmission Error");
 	}
-	// Assign the float value to the last element
-	memcpy(&dataToSend[NUM_INTS], &tForceFB, FLOAT_SIZE);
 
-	for (;;) {
-	  // Chip Select pin low to start transmission
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Adjust GPIO port and pin
-
-	  // Transmit data
-	  status = HAL_SPI_Transmit(&hspi2, (uint8_t*)dataToSend, DATA_SIZE, HAL_MAX_DELAY);
-
-	  // Chip Select pin high to end transmission
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-
-	  // Check for errors
-	  if (status != HAL_OK) {
-		  // Handle error
-	  }
-
-      // Delay for a while to avoid flooding the Pico
-      vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
-	}
-    osDelay(1);
+	// Delay for a while to avoid flooding the Pico
+	//vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
   }
   /* USER CODE END StartSPISend */
 }
