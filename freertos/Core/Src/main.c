@@ -52,9 +52,6 @@ telemetry_packet telemetry_data;
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFFER_SIZE 256
-#define NUM_INTS 8
-#define FLOAT_SIZE sizeof(float)
-#define DATA_SIZE (NUM_INTS * sizeof(int) + FLOAT_SIZE)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -64,6 +61,7 @@ TaskHandle_t spiTaskHandle;
 
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi2;
+DMA_HandleTypeDef hdma_spi2_tx;
 
 UART_HandleTypeDef huart2;
 
@@ -71,6 +69,7 @@ osThreadId defaultTaskHandle;
 osThreadId telemetryTaskHandle;
 osThreadId heartbeatTaskHandle;
 osThreadId SPISendDataTaskHandle;
+osSemaphoreId spiSendMutexHandle;
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
@@ -81,6 +80,7 @@ uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received com
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
 void StartDefaultTask(void const * argument);
@@ -168,6 +168,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_SPI2_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
@@ -187,6 +188,11 @@ int main(void)
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
 
+  /* Create the semaphores(s) */
+  /* definition and creation of spiSendMutex */
+  osSemaphoreDef(spiSendMutex);
+  spiSendMutexHandle = osSemaphoreCreate(osSemaphore(spiSendMutex), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -205,7 +211,7 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of telemetryTask */
-  osThreadDef(telemetryTask, StartTelemetryTask, osPriorityRealtime, 0, 128);
+  osThreadDef(telemetryTask, StartTelemetryTask, osPriorityHigh, 0, 128);
   telemetryTaskHandle = osThreadCreate(osThread(telemetryTask), NULL);
 
   /* definition and creation of heartbeatTask */
@@ -213,7 +219,7 @@ int main(void)
   heartbeatTaskHandle = osThreadCreate(osThread(heartbeatTask), NULL);
 
   /* definition and creation of SPISendDataTask */
-  osThreadDef(SPISendDataTask, StartSPISend, osPriorityRealtime, 0, 128);
+  osThreadDef(SPISendDataTask, StartSPISend, osPriorityHigh, 0, 128);
   SPISendDataTaskHandle = osThreadCreate(osThread(SPISendDataTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -298,7 +304,6 @@ static void MX_SPI2_Init(void)
 {
 
   /* USER CODE BEGIN SPI2_Init 0 */
-
   /* USER CODE END SPI2_Init 0 */
 
   /* USER CODE BEGIN SPI2_Init 1 */
@@ -312,7 +317,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -361,6 +366,22 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -398,6 +419,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
+    // This callback is called when the transfer is complete
+    if (hspi->Instance == SPI2) {
+        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET); // Pull CS high
+    }
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
         // Process the received data (rx_buffer)
@@ -445,33 +473,6 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     }
 }
 
-void packTelemetryPacket(telemetry_packet *packet, uint8_t *buffer) {
-    // Ensure buffer is large enough
-    if (buffer == NULL) return;  // Add appropriate size check if needed
-
-    size_t offset = 0;
-
-    // Helper macro to pack data in little-endian
-    #define PACK_INT32(value) \
-        memcpy(buffer + offset, &value, sizeof(value)); \
-        offset += sizeof(value);
-
-    #define PACK_FLOAT(value) \
-        memcpy(buffer + offset, &value, sizeof(value)); \
-        offset += sizeof(value);
-
-    // Pack the structure fields into the buffer
-    PACK_INT32(packet->tRpm);
-    PACK_INT32(packet->tGear);
-    PACK_INT32(packet->tSpeedKmh);
-    PACK_INT32(packet->tHasDRS);
-    PACK_INT32(packet->tDrs);
-    PACK_INT32(packet->tPitLim);
-    PACK_INT32(packet->tFuel);
-    PACK_INT32(packet->tBrakeBias);
-    PACK_INT32(packet->tForceFB);
-}
-
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -487,7 +488,8 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	osSignalSet(SPISendDataTaskHandle, 0x01);  // Set signal for telemetry task
+    osDelay(1000);
   }
   /* USER CODE END 5 */
 }
@@ -560,26 +562,24 @@ void StartSPISend(void const * argument)
 	uint8_t buffer[sizeof(telemetry_packet)];
   for(;;)
   {
-  // Wait for notification from UART callback
-	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-	packTelemetryPacket(&telemetry_data, buffer);
+	  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK) {
+		// Wait for notification from UART callback
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		telemetry_packet dataToSend = {3600, 1, 120.5, 0, 0, 0, 45, 0, 1};
+		memcpy(buffer, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
+		// Chip Select pin low to start transmission
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
+		// Transmit the data using DMA
+		status = HAL_SPI_Transmit_DMA(&hspi2, buffer, sizeof(telemetry_packet));
 
-	// Chip Select pin low to start transmission
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Adjust GPIO port and pin
-	//HAL_Delay(1); // 1 millisecond delay (or adjust as needed)
-	// Transmit data
-	status = HAL_SPI_Transmit(&hspi2, buffer, sizeof(telemetry_packet), HAL_MAX_DELAY);
-
-	// Chip Select pin high to end transmission
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-
-	// Check for errors
-	if (status != HAL_OK) {
-		send_response("SPI Transmission Error");
-	}
-
-	// Delay for a while to avoid flooding the Pico
-	//vTaskDelay(pdMS_TO_TICKS(1000)); // Adjust the delay as needed
+		// Check for errors
+		if (status != HAL_OK) {
+			send_response("SPI Transmission Error");
+		}
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+		// Release the semaphore
+		osSemaphoreRelease(spiSendMutexHandle);
+	  }
   }
   /* USER CODE END StartSPISend */
 }

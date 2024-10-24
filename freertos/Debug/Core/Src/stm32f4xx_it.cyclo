@@ -6,6 +6,6 @@
 ../Core/Src/stm32f4xx_it.c:159:6:BusFault_Handler	1
 ../Core/Src/stm32f4xx_it.c:174:6:UsageFault_Handler	1
 ../Core/Src/stm32f4xx_it.c:189:6:DebugMon_Handler	1
-../Core/Src/stm32f4xx_it.c:209:6:SPI2_IRQHandler	1
+../Core/Src/stm32f4xx_it.c:209:6:DMA1_Stream4_IRQHandler	1
 ../Core/Src/stm32f4xx_it.c:223:6:USART2_IRQHandler	1
 ../Core/Src/stm32f4xx_it.c:237:6:TIM6_DAC_IRQHandler	1

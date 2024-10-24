@@ -28,7 +28,7 @@ typedef struct __attribute__((__packed__)) {
 } telemetry_packet;
 
 telemetry_packet telemetry_data;
-
+       
 void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
     blink_program_init(pio, sm, offset, pin);
     pio_sm_set_enabled(pio, sm, true);
@@ -41,7 +41,7 @@ void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
 }
 
 void setup_spi() {
-    spi_init(SPI_PORT, 656250);
+    spi_init(SPI_PORT, 328125);
 
     // Set the SPI format to match the STM32
     spi_set_format(SPI_PORT, 
@@ -57,8 +57,6 @@ void setup_spi() {
 }
 
 void setup() {
-    setup_spi();
-
     // PIO Blinking example
     PIO pio = pio0;
     uint offset = pio_add_program(pio, &blink_program);
@@ -71,7 +69,7 @@ void setup() {
     #endif
 
     telemetry_data.tRpm = 0;
-    telemetry_data.tRpm = 0;
+    telemetry_data.tGear = 0;
     telemetry_data.tSpeedKmh = 0;
     telemetry_data.tHasDRS = 0;
     telemetry_data.tDrs = 0;
@@ -82,61 +80,59 @@ void setup() {
     memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
 }
 
-// Function to unpack telemetry data from buffer
-void unpackTelemetryPacket(uint8_t *buffer, telemetry_packet *packet) {
-    // Ensure the buffer is large enough and packet is valid
-    if (buffer == NULL || packet == NULL) return; // Add appropriate size checks if needed
+bool loop() {
+    bool flag = false;
+    // Create a buffer to hold the received data
+    uint8_t buffer[sizeof(telemetry_packet)];
 
-    size_t offset = 0;
+    // Assuming SPI0 is used; adjust if necessary
+    spi_inst_t *spi = spi0;
+    uint8_t cs_pin = 17; // Adjust CS pin as needed
 
-    // Helper macro to unpack data in little-endian
-    #define UNPACK_INT32(value) \
-        memcpy(&value, buffer + offset, sizeof(value)); \
-        offset += sizeof(value);
-    
-    #define UNPACK_FLOAT(value) \
-        memcpy(&value, buffer + offset, sizeof(value)); \
-        offset += sizeof(value);
-
-    // Unpack the structure fields from the buffer
-    UNPACK_INT32(packet->tRpm);
-    UNPACK_INT32(packet->tGear);
-    UNPACK_INT32(packet->tSpeedKmh);
-    UNPACK_INT32(packet->tHasDRS);
-    UNPACK_INT32(packet->tDrs);
-    UNPACK_INT32(packet->tPitLim);
-    UNPACK_INT32(packet->tFuel);
-    UNPACK_INT32(packet->tBrakeBias);
-    UNPACK_INT32(packet->tForceFB);
-}
-
-void loop() {
-    uint8_t spi_rx_buffer[sizeof(telemetry_packet)];
-    // Wait for CS to go low (indicating a transmission is starting)
-    while (gpio_get(PIN_CS)) {
-        // Wait until CS is low
-    }
-    // Read the data into the buffer
-    spi_read_blocking(SPI_PORT, 0, spi_rx_buffer, sizeof(spi_rx_buffer));
-
-    // Call function to unpack data into telemetry_data structure
-    unpackTelemetryPacket(spi_rx_buffer, &telemetry_data);
-
-    printf("tGear: %d, tRpm: %d, tForceFB: %.2f, tFuel: %d\n", telemetry_data.tGear, telemetry_data.tRpm, telemetry_data.tForceFB, telemetry_data.tFuel);
-
-    // Wait until CS is high again (end of transmission)
-    while (!gpio_get(PIN_CS)) {
-        // Wait until CS is high
+    while (gpio_get(PIN_CS) == 1) {
+        // Do nothing, wait for CS to go low
     }
 
-    // Optionally add a small delay here
-    sleep_ms(10);
+    // Read the data from SPI
+    spi_read_blocking(spi, 0, (uint8_t*)&buffer, sizeof(buffer));
+
+    // Check if the size of the received data matches the struct size
+    if (sizeof(buffer) == sizeof(telemetry_packet)) {
+        // Copy the data from the buffer to the telemetry_data struct
+        memcpy(&telemetry_data, buffer, sizeof(telemetry_packet));
+        // Convert received data to byte array for logging
+        uint8_t* rawData = (uint8_t*)&buffer;
+
+        // Print raw data
+        for (int i = 0; i < sizeof(telemetry_packet); i++) {
+            printf("Byte %d: 0x%02X\n", i, rawData[i]);
+        }
+        flag = true;
+    } else {
+        // Handle the size mismatch (e.g., log an error, set defaults, etc.)
+        printf("Received data size mismatch. Expected: %lu, Received: %lu\n",
+               sizeof(telemetry_packet), sizeof(buffer));
+        flag = false;
+    }
+
+    // Wait for CS to go high again (indicating end of SPI transaction)
+    while (gpio_get(PIN_CS) == 0) {
+        // Do nothing, wait for CS to go high
+    }
+    return flag;
 }
+
 int main()
 {
     stdio_init_all();
     setup();  
+
+
+    setup_spi();
     while (true) {
-        loop();
+        if(loop()){
+            printf("tGear: %d, tRpm: %d, tForceFB: %d, tFuel: %d\n", telemetry_data.tGear, telemetry_data.tRpm, telemetry_data.tForceFB, telemetry_data.tFuel);
+        }
+        sleep_ms(1000); // Adjust the delay as needed
     }
 }
