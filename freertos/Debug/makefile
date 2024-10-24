@@ -65,8 +65,8 @@ all: main-build
 main-build: stm-freertos.elf secondary-outputs
 
 # Tool invocations
-stm-freertos.elf stm-freertos.map: $(OBJS) $(USER_OBJS) A:\GitHub\sim-wheel\freertos\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "stm-freertos.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"A:\GitHub\sim-wheel\freertos\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm-freertos.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+stm-freertos.elf stm-freertos.map: $(OBJS) $(USER_OBJS) C:\Users\Reds2\Documents\GitHub\sim-wheel\freertos\STM32F446RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "stm-freertos.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\Reds2\Documents\GitHub\sim-wheel\freertos\STM32F446RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm-freertos.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

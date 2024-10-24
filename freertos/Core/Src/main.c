@@ -33,7 +33,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef struct __attribute__((__packed__)) {
+typedef struct {
 	int32_t  tRpm;
 	int32_t  tGear;
 	int32_t  tSpeedKmh;
@@ -238,6 +238,7 @@ int main(void)
   // Start scheduler
   vTaskStartScheduler();
   send_response("STM Started");
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -327,7 +328,7 @@ static void MX_SPI2_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN SPI2_Init 2 */
-
+  //HAL_SPI_Transmit_DMA(&hspi2, buffer, sizeof(telemetry_packet));
   /* USER CODE END SPI2_Init 2 */
 
 }
@@ -419,11 +420,9 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
-    // This callback is called when the transfer is complete
-    if (hspi->Instance == SPI2) {
-        HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET); // Pull CS high
-    }
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
+    // Pull CS line high to deselect the slave
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -488,8 +487,7 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	osSignalSet(SPISendDataTaskHandle, 0x01);  // Set signal for telemetry task
-    osDelay(1000);
+	osDelay(1);
   }
   /* USER CODE END 5 */
 }
@@ -517,8 +515,7 @@ void StartTelemetryTask(void const * argument)
 	// Re-enable UART reception
 	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
 
-	osSignalSet(SPISendDataTaskHandle, 0x01);  // Set signal for telemetry task
-    osDelay(1);
+	osDelay(1);
   }
   /* USER CODE END StartTelemetryTask */
 }
@@ -558,28 +555,31 @@ void StartSPISend(void const * argument)
 {
   /* USER CODE BEGIN StartSPISend */
   /* Infinite loop */
+
+  while(1)
+  {
 	HAL_StatusTypeDef status;
 	uint8_t buffer[sizeof(telemetry_packet)];
-  for(;;)
-  {
-	  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK) {
-		// Wait for notification from UART callback
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-		telemetry_packet dataToSend = {3600, 1, 120.5, 0, 0, 0, 45, 0, 1};
-		memcpy(buffer, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
-		// Chip Select pin low to start transmission
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
-		// Transmit the data using DMA
-		status = HAL_SPI_Transmit_DMA(&hspi2, buffer, sizeof(telemetry_packet));
+	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1};
+	memcpy(&buffer, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
+	// Chip Select pin low to start transmission
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
+	// Transmit the data using DMA
 
-		// Check for errors
-		if (status != HAL_OK) {
-			send_response("SPI Transmission Error");
-		}
-		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-		// Release the semaphore
-		osSemaphoreRelease(spiSendMutexHandle);
-	  }
+
+	status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
+	//uint8_t data = 0x55;  // Test byte
+	//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
+	//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
+	//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
+	// Check for errors
+	if (status != HAL_OK) {
+		send_response("SPI Transmission Error");
+	}
+
+	// Wait for transmission to complete (optional but safer)
+	osSemaphoreRelease(spiSendMutexHandle);
+
   }
   /* USER CODE END StartSPISend */
 }

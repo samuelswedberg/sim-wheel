@@ -4,7 +4,6 @@
 #include "hardware/spi.h"
 #include "hardware/pio.h"
 
-// SPI Defines
 // We are going to use SPI 0, and allocate it to the following GPIO pins
 // Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
 #define SPI_PORT spi0
@@ -47,7 +46,7 @@ void setup_spi() {
     spi_set_format(SPI_PORT, 
                 8,                // Data size (8 bits)
                 SPI_CPOL_0,       // Clock polarity low
-                SPI_CPHA_0,       // Clock phase first edge
+                SPI_CPHA_1,       // Clock phase first edge
                 SPI_MSB_FIRST);   // MSB first
 
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
