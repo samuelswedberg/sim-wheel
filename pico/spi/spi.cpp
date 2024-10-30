@@ -23,7 +23,6 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
-	int32_t tForceFB;
 } telemetry_packet;
        
 void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
@@ -47,7 +46,7 @@ void interpret_data(uint8_t *buffer, telemetry_packet *telemetry_data) {
     telemetry_data->tPitLim = buffer[20] | (buffer[21] << 8) | (buffer[22] << 16) | (buffer[23] << 24);
     telemetry_data->tFuel = buffer[24] | (buffer[25] << 8) | (buffer[26] << 16) | (buffer[27] << 24);
     telemetry_data->tBrakeBias = buffer[28] | (buffer[29] << 8) | (buffer[30] << 16) | (buffer[31] << 24);
-    telemetry_data->tForceFB = buffer[32] | (buffer[33] << 8) | (buffer[34] << 16) | (buffer[35] << 24);
+    //telemetry_data->tForceFB = buffer[32] | (buffer[33] << 8) | (buffer[34] << 16) | (buffer[35] << 24);
 }
 
 void shift_bytes_to_end(uint8_t *buffer, size_t length) {
@@ -78,7 +77,6 @@ void setup_spi() {
                 SPI_CPHA_1,       // Clock phase first edge
                 SPI_MSB_FIRST);   // MSB first
 }
-
 
 void receive_spi_data(telemetry_packet *telemetry_data) {
     if(spi_is_readable (SPI_PORT))
@@ -131,7 +129,6 @@ int main()
     telemetry_data.tPitLim = 0;
     telemetry_data.tFuel = 0;
     telemetry_data.tBrakeBias = 0;
-    telemetry_data.tForceFB = 0;
     while (1) {
         receive_spi_data(&telemetry_data);
 
@@ -144,6 +141,5 @@ int main()
         printf("tPitLim: %d\n", telemetry_data.tPitLim);
         printf("tFuel: %d\n", telemetry_data.tFuel);
         printf("tBrakeBias: %d\n", telemetry_data.tBrakeBias);
-        printf("tForceFB: %d\n", telemetry_data.tForceFB);
     }
 }

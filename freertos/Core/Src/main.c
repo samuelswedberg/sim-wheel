@@ -28,7 +28,9 @@
 #include <cJSON.h>
 #include <string.h>
 #include <stdio.h>
-#include "stm32f4xx_hal.h"  // Make sure to include the STM32 HAL header
+#include "stm32f4xx_hal.h"
+#include <math.h>
+#include <time.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +45,6 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
-	int32_t tForceFB;
 } telemetry_packet;
 
 telemetry_packet telemetry_data;
@@ -53,6 +54,8 @@ telemetry_packet telemetry_data;
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFFER_SIZE 256
+#define ENCODER_RESOLUTION 1024  // Example: number of counts per rotation
+#define WHEEL_MAX_ANGLE 450      // Maximum angle for the lock (degrees)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -70,12 +73,16 @@ osThreadId defaultTaskHandle;
 osThreadId telemetryTaskHandle;
 osThreadId heartbeatTaskHandle;
 osThreadId SPISendDataTaskHandle;
+osThreadId FFBTaskHandle;
 osSemaphoreId spiSendMutexHandle;
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 
+float gFfbSignal;
+static int32_t last_encoder_count = 0;
+static uint32_t last_update_time = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -88,6 +95,7 @@ void StartDefaultTask(void const * argument);
 void StartTelemetryTask(void const * argument);
 void StartHeartbeatTask(void const * argument);
 void StartSPISend(void const * argument);
+void StartFFBTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -118,7 +126,8 @@ void process_command(char* cmd) {
 		if (cJSON_IsNumber(pitLim)) { telemetry_data.tPitLim = pitLim->valueint; }
 		if (cJSON_IsNumber(fuel)) { telemetry_data.tFuel = fuel->valueint; }
 		if (cJSON_IsNumber(brakeBias)) { telemetry_data.tBrakeBias = brakeBias->valueint; }
-		if (cJSON_IsNumber(forceFB)) { telemetry_data.tForceFB = (float)forceFB->valuedouble; }
+
+		if (cJSON_IsNumber(forceFB)) { gFfbSignal = (float)forceFB->valuedouble; }
 		}
 		// Cleanup
 		cJSON_Delete(json_data);
@@ -155,6 +164,87 @@ void DWT_Delay_us(uint32_t us) {
     while ((DWT->CYCCNT - startTick) < delayTicks) {
         // Wait until the required delay has passed
     }
+}
+
+float oscillate() {
+    float period = 3.0;  // Oscillation period in seconds
+    float elapsed_time = HAL_GetTick() / 1000.0;  // Convert milliseconds to seconds
+
+    // Calculate the oscillation value using a sine wave
+    return sin((2 * M_PI * elapsed_time) / period);
+}
+
+float constrain(float x, float lower, float upper) {
+    if (x < lower) return lower;
+    if (x > upper) return upper;
+    return x;
+}
+
+float calculate_inertia(float force_feedback, float angular_velocity) {
+    static float previous_output = 0;
+    float inertia_coefficient = 0.1; // Fine-tune for feel
+    float inertia_force = inertia_coefficient * previous_output + (1 - inertia_coefficient) * force_feedback;
+    previous_output = inertia_force;
+    return inertia_force;
+}
+
+float calculate_damping(float angular_velocity) {
+    float damping_coefficient = 0.05;
+    return -damping_coefficient * angular_velocity;
+}
+
+float calculate_friction(float angular_velocity) {
+    float friction_coefficient = 0.02;
+    return -friction_coefficient * ((angular_velocity > 0) ? 1 : -1);
+}
+
+float calculate_lock(float angle) {
+    float lock_coefficient = 1.0;
+    float max_angle = 450.0;
+    if (angle > max_angle) {
+        return -lock_coefficient * (angle - max_angle);
+    } else if (angle < -max_angle) {
+        return -lock_coefficient * (angle + max_angle);
+    }
+    return 0;
+}
+
+float scale_to_pwm(float total_force) {
+    // Assuming total force needs to be in PWM range (0-255)
+    float pwm_output = (total_force + 1) * 127.5; // Scale from [-1, 1] to [0, 255]
+    return constrain(pwm_output, 0, 255); // constrain to valid range
+}
+
+void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
+    // Get the current encoder count
+    int32_t current_encoder_count = get_encoder_position();
+
+    // Calculate time difference (in seconds) since the last update
+    uint32_t current_time = HAL_GetTick();  // Assuming HAL for timing (ms)
+    float dt = (current_time - last_update_time) / 1000.0;  // Convert ms to seconds
+
+    // Update wheel position
+    // Calculate the change in encoder counts
+    int32_t delta_count = current_encoder_count - last_encoder_count;
+
+    // Convert encoder counts to wheel angle (degrees)
+    float delta_angle = (360.0 / ENCODER_RESOLUTION) * delta_count;
+
+    // Update the wheel angle, keeping within the lock limit
+    *wheel_angle += delta_angle;
+    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
+    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
+
+    // Calculate angular velocity (degrees per second)
+    if (dt > 0) {
+        *angular_velocity = delta_angle / dt;
+    } else {
+        *angular_velocity = 0;
+    }
+
+    // Store the current values for the next update
+    last_encoder_count = current_encoder_count;
+    last_update_time = current_time;
 }
 
 /* USER CODE END 0 */
@@ -200,7 +290,7 @@ int main(void)
   telemetry_data.tPitLim = 0;
   telemetry_data.tFuel = 0;
   telemetry_data.tBrakeBias = 0;
-  telemetry_data.tForceFB = 0;
+  gFfbSignal = 0;
   memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
 
   DWT_Init();
@@ -243,6 +333,10 @@ int main(void)
   /* definition and creation of SPISendDataTask */
   osThreadDef(SPISendDataTask, StartSPISend, osPriorityHigh, 0, 128);
   SPISendDataTaskHandle = osThreadCreate(osThread(SPISendDataTask), NULL);
+
+  /* definition and creation of FFBTask */
+  osThreadDef(FFBTask, StartFFBTask, osPriorityHigh, 0, 128);
+  FFBTaskHandle = osThreadCreate(osThread(FFBTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -509,9 +603,10 @@ void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
+
   for(;;)
   {
-	osDelay(1);
+	  gFfbSignal = oscillate();
   }
   /* USER CODE END 5 */
 }
@@ -586,7 +681,7 @@ void StartSPISend(void const * argument)
 	  {
 		HAL_StatusTypeDef status;
 		uint8_t buffer[sizeof(telemetry_packet)];
-		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1}; // DEBUG DATA
+		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; // DEBUG DATA
 		memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
 
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
@@ -610,6 +705,51 @@ void StartSPISend(void const * argument)
 	 osDelay(50);
   }
   /* USER CODE END StartSPISend */
+}
+
+/* USER CODE BEGIN Header_StartFFBTask */
+/**
+* @brief Function implementing the FFBTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartFFBTask */
+void StartFFBTask(void const * argument)
+{
+  /* USER CODE BEGIN StartFFBTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  float force_feedback_signal, pwm_output;
+	  float wheel_angle = 0.0;
+	  float angular_velocity = 0.0;
+	  float total_force = 0.0;
+
+	  for (;;) {
+		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
+		  force_feedback_signal = gFfbSignal;
+
+		  // Step 2: Calculate individual forces based on physics:
+		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
+		  float damping_force = calculate_damping(angular_velocity);
+		  float friction_force = calculate_friction(angular_velocity);
+		  float lock_force = calculate_lock(wheel_angle);
+
+		  // Step 3: Sum all forces and scale to PWM range:
+		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
+		  pwm_output = scale_to_pwm(total_force);
+
+		  // Step 4: Send PWM signal to H-bridge for motor control:
+		  //set_motor_pwm(pwm_output);
+
+		  // Step 5: Update wheel position and velocity for next loop:
+		  //update_wheel_position_and_velocity();
+
+		  // Run this task periodically (every 10ms):
+		  osDelay(10);
+	  }
+  }
+  /* USER CODE END StartFFBTask */
 }
 
 /**
