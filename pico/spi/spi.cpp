@@ -50,7 +50,7 @@ void interpret_data(uint8_t *buffer, telemetry_packet *telemetry_data) {
 }
 
 void setup_spi() {
-    spi_init(SPI_PORT, 1 * 1312500);
+    spi_init(SPI_PORT, 1 * 328125);
 
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
     gpio_set_function(PIN_CS,   GPIO_FUNC_SPI);
@@ -60,8 +60,8 @@ void setup_spi() {
     spi_set_slave(SPI_PORT, true);
     spi_set_format(SPI_PORT, 
                 8,                // Data size (8 bits)
-                SPI_CPOL_0,       // Clock polarity low
-                SPI_CPHA_0,       // Clock phase first edge
+                SPI_CPOL_1,       // Clock polarity low
+                SPI_CPHA_1,       // Clock phase first edge
                 SPI_MSB_FIRST);   // MSB first
 }
 
@@ -118,14 +118,15 @@ int main()
         receive_spi_data(&telemetry_data);
 
         //Print the interpreted values
-        // printf("tRpm: %d\n", telemetry_data.tRpm);
-        // printf("tGear: %d\n", telemetry_data.tGear);
-        // printf("tSpeedKmh: %d\n", telemetry_data.tSpeedKmh);
-        // printf("tHasDRS: %d\n", telemetry_data.tHasDRS);
-        // printf("tDrs: %d\n", telemetry_data.tDrs);
-        // printf("tPitLim: %d\n", telemetry_data.tPitLim);
-        // printf("tFuel: %d\n", telemetry_data.tFuel);
-        // printf("tBrakeBias: %d\n", telemetry_data.tBrakeBias);
-        // printf("tForceFB: %d\n", telemetry_data.tForceFB);
+        printf("tRpm: %d\n", telemetry_data.tRpm);
+        printf("tGear: %d\n", telemetry_data.tGear);
+        printf("tSpeedKmh: %d\n", telemetry_data.tSpeedKmh);
+        printf("tHasDRS: %d\n", telemetry_data.tHasDRS);
+        printf("tDrs: %d\n", telemetry_data.tDrs);
+        printf("tPitLim: %d\n", telemetry_data.tPitLim);
+        printf("tFuel: %d\n", telemetry_data.tFuel);
+        printf("tBrakeBias: %d\n", telemetry_data.tBrakeBias);
+        printf("tForceFB: %d\n", telemetry_data.tForceFB);
+        sleep_ms(500);
     }
 }
