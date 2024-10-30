@@ -49,6 +49,19 @@ void interpret_data(uint8_t *buffer, telemetry_packet *telemetry_data) {
     telemetry_data->tForceFB = buffer[32] | (buffer[33] << 8) | (buffer[34] << 16) | (buffer[35] << 24);
 }
 
+void shift_bytes_to_end(uint8_t *buffer, size_t length) {
+    // Temporary storage for the first 8 bytes
+    uint8_t temp[8];
+    memcpy(temp, buffer, 8);
+    
+    // Shift the remaining bytes to the left by 8 positions
+    memmove(buffer, buffer + 8, length - 8);
+    
+    // Place the first 8 bytes at the end of the buffer
+    memcpy(buffer + length - 8, temp, 8);
+}
+
+
 void setup_spi() {
     spi_init(SPI_PORT, 1 * 656250);
 
@@ -65,6 +78,7 @@ void setup_spi() {
                 SPI_MSB_FIRST);   // MSB first
 }
 
+
 void receive_spi_data(telemetry_packet *telemetry_data) {
     if(spi_is_readable (SPI_PORT))
     {
@@ -74,14 +88,17 @@ void receive_spi_data(telemetry_packet *telemetry_data) {
         memset(buffer, 0, sizeof(buffer));
 
         // Wait for data from the master
-        spi_read_blocking(spi0, 0, buffer, sizeof(buffer));  // Read 36 bytes into buffer
+        spi_read_blocking(SPI_PORT, 0, buffer, sizeof(buffer));  // Read 36 bytes into buffer
+
+        // Align the buffer if necessary
+        shift_bytes_to_end(buffer, sizeof(buffer));
 
         // Debug: Print each byte received
-        // printf("Received data: ");
-        // for (int i = 0; i < sizeof(telemetry_packet); i++) {
-        //     printf("0x%02X ", buffer[i]);
-        // }
-        // printf("\n");
+        printf("Received data: ");
+        for (int i = 0; i < sizeof(telemetry_packet); i++) {
+            printf("0x%02X ", buffer[i]);
+        }
+        printf("\n");
         
         // Interpret the data into the telemetry_packet struct
         interpret_data(buffer, telemetry_data);
