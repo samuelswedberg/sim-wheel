@@ -28,12 +28,12 @@
 #include <cJSON.h>
 #include <string.h>
 #include <stdio.h>
-
+#include "stm32f4xx_hal.h"  // Make sure to include the STM32 HAL header
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef struct {
+typedef struct __attribute__((packed)){
 	int32_t  tRpm;
 	int32_t  tGear;
 	int32_t  tSpeedKmh;
@@ -137,6 +137,25 @@ void send_response(const char* str) {
     HAL_UART_Transmit(&huart2, (uint8_t*)str, len, HAL_MAX_DELAY);
 }
 
+// Initialize DWT for cycle counting
+void DWT_Init(void) {
+    if (!(CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk)) {
+        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    }
+    DWT->CYCCNT = 0; // Reset the cycle counter
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Enable the cycle counter
+}
+
+// Delay function using DWT for accurate timing in microseconds
+void DWT_Delay_us(uint32_t us) {
+    uint32_t startTick = DWT->CYCCNT;
+    uint32_t delayTicks = us * (SystemCoreClock / 1000000); // Convert microseconds to ticks
+
+    while ((DWT->CYCCNT - startTick) < delayTicks) {
+        // Wait until the required delay has passed
+    }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -182,6 +201,8 @@ int main(void)
   telemetry_data.tBrakeBias = 0;
   telemetry_data.tForceFB = 0;
   memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
+
+  DWT_Init();
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -318,7 +339,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -423,6 +444,8 @@ static void MX_GPIO_Init(void)
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
     // Pull CS line high to deselect the slave
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
+    DWT_Delay_us(2);
+    osSemaphoreRelease(spiSendMutexHandle);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -558,28 +581,29 @@ void StartSPISend(void const * argument)
 
   while(1)
   {
-	HAL_StatusTypeDef status;
-	uint8_t buffer[sizeof(telemetry_packet)];
-	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1};
-	memcpy(&buffer, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
-	// Chip Select pin low to start transmission
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
-	// Transmit the data using DMA
+	  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK)
+	  {
+		HAL_StatusTypeDef status;
+		uint8_t buffer[sizeof(telemetry_packet)];
+		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1};
+		memcpy(&buffer, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
+		// Chip Select pin low to start transmission
 
+		// Transmit the data using DMA
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
+		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
+		//uint8_t data = 0x0F;  // Test byte
 
-	status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
-	//uint8_t data = 0x55;  // Test byte
-	//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
-	//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
-	//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
-	// Check for errors
-	if (status != HAL_OK) {
-		send_response("SPI Transmission Error");
-	}
-
-	// Wait for transmission to complete (optional but safer)
-	osSemaphoreRelease(spiSendMutexHandle);
-
+		//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
+		//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
+		//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
+		// Check for errors
+		if (status != HAL_OK) {
+			send_response("SPI Transmission Error");
+		}
+		// Wait for transmission to complete (optional but safer)
+	  }
+	  //osDelay(10);
   }
   /* USER CODE END StartSPISend */
 }

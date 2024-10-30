@@ -5,16 +5,15 @@
 #include "hardware/pio.h"
 
 // We are going to use SPI 0, and allocate it to the following GPIO pins
-// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
 #define SPI_PORT spi0
-#define PIN_MISO 16 // RX
+#define PIN_MISO 16
 #define PIN_CS   17
 #define PIN_SCK  18
-#define PIN_MOSI 19 // TX
+#define PIN_MOSI 19
 
 #include "blink.pio.h"
 
-typedef struct __attribute__((__packed__)) {
+typedef struct __attribute__((packed)){
 	int32_t  tRpm;
 	int32_t  tGear;
 	int32_t  tSpeedKmh;
@@ -25,8 +24,6 @@ typedef struct __attribute__((__packed__)) {
 	int32_t  tBrakeBias;
 	int32_t tForceFB;
 } telemetry_packet;
-
-telemetry_packet telemetry_data;
        
 void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
     blink_program_init(pio, sm, offset, pin);
@@ -38,24 +35,64 @@ void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
     // input (wait for n + 1; mov; jmp)
     pio->txf[sm] = (125000000 / (2 * freq)) - 3;
 }
+// Function to interpret the SPI data buffer into the telemetry_packet struct
+void interpret_data(uint8_t *buffer, telemetry_packet *telemetry_data) {
+    // Interpret each 4-byte segment in little-endian format
+    telemetry_data->tRpm = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
+    telemetry_data->tGear = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
+    telemetry_data->tSpeedKmh = buffer[8] | (buffer[9] << 8) | (buffer[10] << 16) | (buffer[11] << 24);
+    telemetry_data->tHasDRS = buffer[12] | (buffer[13] << 8) | (buffer[14] << 16) | (buffer[15] << 24);
+    telemetry_data->tDrs = buffer[16] | (buffer[17] << 8) | (buffer[18] << 16) | (buffer[19] << 24);
+    telemetry_data->tPitLim = buffer[20] | (buffer[21] << 8) | (buffer[22] << 16) | (buffer[23] << 24);
+    telemetry_data->tFuel = buffer[24] | (buffer[25] << 8) | (buffer[26] << 16) | (buffer[27] << 24);
+    telemetry_data->tBrakeBias = buffer[28] | (buffer[29] << 8) | (buffer[30] << 16) | (buffer[31] << 24);
+    telemetry_data->tForceFB = buffer[32] | (buffer[33] << 8) | (buffer[34] << 16) | (buffer[35] << 24);
+}
 
 void setup_spi() {
-    spi_init(SPI_PORT, 328125);
-
-    // Set the SPI format to match the STM32
-    spi_set_format(SPI_PORT, 
-                8,                // Data size (8 bits)
-                SPI_CPOL_0,       // Clock polarity low
-                SPI_CPHA_1,       // Clock phase first edge
-                SPI_MSB_FIRST);   // MSB first
+    spi_init(SPI_PORT, 1 * 1312500);
 
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
     gpio_set_function(PIN_CS,   GPIO_FUNC_SPI);
     gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+
+    spi_set_slave(SPI_PORT, true);
+    spi_set_format(SPI_PORT, 
+                8,                // Data size (8 bits)
+                SPI_CPOL_0,       // Clock polarity low
+                SPI_CPHA_0,       // Clock phase first edge
+                SPI_MSB_FIRST);   // MSB first
 }
 
-void setup() {
+void receive_spi_data(telemetry_packet *telemetry_data) {
+    if(spi_is_readable (SPI_PORT))
+    {
+        printf("Receiving data...\n");
+        uint8_t buffer[sizeof(telemetry_packet)];  // Buffer to store received data
+
+        memset(buffer, 0, sizeof(buffer));
+
+        // Wait for data from the master
+        spi_read_blocking(spi0, 0, buffer, sizeof(buffer));  // Read 36 bytes into buffer
+
+        // Debug: Print each byte received
+        printf("Received data: ");
+        for (int i = 0; i < sizeof(telemetry_packet); i++) {
+            printf("0x%02X ", buffer[i]);
+        }
+        printf("\n");
+        
+        // Interpret the data into the telemetry_packet struct
+        interpret_data(buffer, telemetry_data);
+    }
+}
+
+int main()
+{
+    stdio_init_all();
+    sleep_ms (2 * 1000);
+    setup_spi();  
     // PIO Blinking example
     PIO pio = pio0;
     uint offset = pio_add_program(pio, &blink_program);
@@ -67,6 +104,7 @@ void setup() {
     blink_pin_forever(pio, 0, offset, 6, 3);
     #endif
 
+    telemetry_packet telemetry_data;
     telemetry_data.tRpm = 0;
     telemetry_data.tGear = 0;
     telemetry_data.tSpeedKmh = 0;
@@ -76,62 +114,18 @@ void setup() {
     telemetry_data.tFuel = 0;
     telemetry_data.tBrakeBias = 0;
     telemetry_data.tForceFB = 0;
-    memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
-}
+    while (1) {
+        receive_spi_data(&telemetry_data);
 
-bool loop() {
-    bool flag = false;
-    // Create a buffer to hold the received data
-    uint8_t buffer[sizeof(telemetry_packet)];
-
-    // Assuming SPI0 is used; adjust if necessary
-    spi_inst_t *spi = spi0;
-    uint8_t cs_pin = 17; // Adjust CS pin as needed
-
-    while (gpio_get(PIN_CS) == 1) {
-        // Do nothing, wait for CS to go low
-    }
-
-    // Read the data from SPI
-    spi_read_blocking(spi, 0, (uint8_t*)&buffer, sizeof(buffer));
-
-    // Check if the size of the received data matches the struct size
-    if (sizeof(buffer) == sizeof(telemetry_packet)) {
-        // Copy the data from the buffer to the telemetry_data struct
-        memcpy(&telemetry_data, buffer, sizeof(telemetry_packet));
-        // Convert received data to byte array for logging
-        uint8_t* rawData = (uint8_t*)&buffer;
-
-        // Print raw data
-        for (int i = 0; i < sizeof(telemetry_packet); i++) {
-            printf("Byte %d: 0x%02X\n", i, rawData[i]);
-        }
-        flag = true;
-    } else {
-        // Handle the size mismatch (e.g., log an error, set defaults, etc.)
-        printf("Received data size mismatch. Expected: %lu, Received: %lu\n",
-               sizeof(telemetry_packet), sizeof(buffer));
-        flag = false;
-    }
-
-    // Wait for CS to go high again (indicating end of SPI transaction)
-    while (gpio_get(PIN_CS) == 0) {
-        // Do nothing, wait for CS to go high
-    }
-    return flag;
-}
-
-int main()
-{
-    stdio_init_all();
-    setup();  
-
-
-    setup_spi();
-    while (true) {
-        if(loop()){
-            printf("tGear: %d, tRpm: %d, tForceFB: %d, tFuel: %d\n", telemetry_data.tGear, telemetry_data.tRpm, telemetry_data.tForceFB, telemetry_data.tFuel);
-        }
-        sleep_ms(1000); // Adjust the delay as needed
+        //Print the interpreted values
+        // printf("tRpm: %d\n", telemetry_data.tRpm);
+        // printf("tGear: %d\n", telemetry_data.tGear);
+        // printf("tSpeedKmh: %d\n", telemetry_data.tSpeedKmh);
+        // printf("tHasDRS: %d\n", telemetry_data.tHasDRS);
+        // printf("tDrs: %d\n", telemetry_data.tDrs);
+        // printf("tPitLim: %d\n", telemetry_data.tPitLim);
+        // printf("tFuel: %d\n", telemetry_data.tFuel);
+        // printf("tBrakeBias: %d\n", telemetry_data.tBrakeBias);
+        // printf("tForceFB: %d\n", telemetry_data.tForceFB);
     }
 }
