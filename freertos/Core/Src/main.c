@@ -339,7 +339,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_128;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -585,18 +585,22 @@ void StartSPISend(void const * argument)
 	  {
 		HAL_StatusTypeDef status;
 		uint8_t buffer[sizeof(telemetry_packet)];
-		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1};
-		memcpy(&buffer, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
+		//telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1};
+		memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
 		// Chip Select pin low to start transmission
 
 		// Transmit the data using DMA
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
-		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
-		//uint8_t data = 0x0F;  // Test byte
+		//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
 
+		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet));
+
+		//uint8_t data = 0x0F;  // Test byte
 		//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
+
 		//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
 		//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
+
 		// Check for errors
 		if (status != HAL_OK) {
 			send_response("SPI Transmission Error");

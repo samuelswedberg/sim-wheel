@@ -50,7 +50,7 @@ void interpret_data(uint8_t *buffer, telemetry_packet *telemetry_data) {
 }
 
 void setup_spi() {
-    spi_init(SPI_PORT, 1 * 328125);
+    spi_init(SPI_PORT, 1 * 656250);
 
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
     gpio_set_function(PIN_CS,   GPIO_FUNC_SPI);
@@ -77,11 +77,11 @@ void receive_spi_data(telemetry_packet *telemetry_data) {
         spi_read_blocking(spi0, 0, buffer, sizeof(buffer));  // Read 36 bytes into buffer
 
         // Debug: Print each byte received
-        printf("Received data: ");
-        for (int i = 0; i < sizeof(telemetry_packet); i++) {
-            printf("0x%02X ", buffer[i]);
-        }
-        printf("\n");
+        // printf("Received data: ");
+        // for (int i = 0; i < sizeof(telemetry_packet); i++) {
+        //     printf("0x%02X ", buffer[i]);
+        // }
+        // printf("\n");
         
         // Interpret the data into the telemetry_packet struct
         interpret_data(buffer, telemetry_data);
@@ -127,6 +127,5 @@ int main()
         printf("tFuel: %d\n", telemetry_data.tFuel);
         printf("tBrakeBias: %d\n", telemetry_data.tBrakeBias);
         printf("tForceFB: %d\n", telemetry_data.tForceFB);
-        sleep_ms(500);
     }
 }

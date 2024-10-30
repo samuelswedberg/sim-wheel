@@ -15,5 +15,5 @@
 ../Core/Src/main.c:525:6:StartTelemetryTask	1
 ../Core/Src/main.c:553:6:StartHeartbeatTask	2
 ../Core/Src/main.c:577:6:StartSPISend	3
-../Core/Src/main.c:619:6:HAL_TIM_PeriodElapsedCallback	2
-../Core/Src/main.c:636:6:Error_Handler	1
+../Core/Src/main.c:623:6:HAL_TIM_PeriodElapsedCallback	2
+../Core/Src/main.c:640:6:Error_Handler	1
