@@ -13,6 +13,7 @@
 
 #include "blink.pio.h"
 
+// !!! MUST MATCH STM STRUCT
 typedef struct __attribute__((packed)){
 	int32_t  tRpm;
 	int32_t  tGear;

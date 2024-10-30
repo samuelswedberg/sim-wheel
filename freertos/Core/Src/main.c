@@ -33,6 +33,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+// !!! MUST MATCH PICO STRUCT
 typedef struct __attribute__((packed)){
 	int32_t  tRpm;
 	int32_t  tGear;
@@ -585,15 +586,14 @@ void StartSPISend(void const * argument)
 	  {
 		HAL_StatusTypeDef status;
 		uint8_t buffer[sizeof(telemetry_packet)];
-		//telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1};
+		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1}; // DEBUG DATA
 		memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
-		// Chip Select pin low to start transmission
 
-		// Transmit the data using DMA
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
-		//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet));
 
-		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet));
+		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet)); // DEBUG DATA
+
+		//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet)); // REAL DATA
 
 		//uint8_t data = 0x0F;  // Test byte
 		//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
@@ -607,7 +607,7 @@ void StartSPISend(void const * argument)
 		}
 		// Wait for transmission to complete (optional but safer)
 	  }
-	 osDelay(10);
+	 osDelay(50);
   }
   /* USER CODE END StartSPISend */
 }
