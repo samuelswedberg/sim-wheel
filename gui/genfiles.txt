@@ -1,0 +1,1 @@
+pyuic6 -x gui/wheelbase.ui -o gui/wheelbase.py
