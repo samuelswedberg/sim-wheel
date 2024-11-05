@@ -67,6 +67,8 @@ TaskHandle_t spiTaskHandle;
 SPI_HandleTypeDef hspi2;
 DMA_HandleTypeDef hdma_spi2_tx;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart2;
 
 osThreadId defaultTaskHandle;
@@ -81,6 +83,7 @@ uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 
 float gFfbSignal;
+int16_t gPosition;
 static int32_t last_encoder_count = 0;
 static uint32_t last_update_time = 0;
 /* USER CODE END PV */
@@ -91,6 +94,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTelemetryTask(void const * argument);
 void StartHeartbeatTask(void const * argument);
@@ -215,9 +219,29 @@ float scale_to_pwm(float total_force) {
     return constrain(pwm_output, 0, 255); // constrain to valid range
 }
 
+void init_encoder() {
+    // Start the encoder mode timer
+    HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+    reset_encoder_position();
+}
+
+int16_t read_encoder_position() {
+    return __HAL_TIM_GET_COUNTER(&htim2);  // Get the current encoder count
+}
+
+void reset_encoder_position() {
+    __HAL_TIM_SET_COUNTER(&htim2, 0);  // Reset the encoder count to zero
+}
+
+float get_angle_degrees() {
+    int16_t position = read_encoder_position();
+    gPosition = position;
+    return (position * 360.0) / ENCODER_RESOLUTION;
+}
+
 void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
     // Get the current encoder count
-    int32_t current_encoder_count = get_encoder_position();
+    int32_t current_encoder_count = get_angle_degrees();
 
     // Calculate time difference (in seconds) since the last update
     uint32_t current_time = HAL_GetTick();  // Assuming HAL for timing (ms)
@@ -281,6 +305,7 @@ int main(void)
   MX_DMA_Init();
   MX_SPI2_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   telemetry_data.tRpm = 0;
   telemetry_data.tRpm = 0;
@@ -292,7 +317,7 @@ int main(void)
   telemetry_data.tBrakeBias = 0;
   gFfbSignal = 0;
   memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
-
+  init_encoder();
   DWT_Init();
   /* USER CODE END 2 */
 
@@ -446,6 +471,55 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
   //HAL_SPI_Transmit_DMA(&hspi2, buffer, sizeof(telemetry_packet));
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -743,7 +817,7 @@ void StartFFBTask(void const * argument)
 		  //set_motor_pwm(pwm_output);
 
 		  // Step 5: Update wheel position and velocity for next loop:
-		  //update_wheel_position_and_velocity();
+		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
 		  // Run this task periodically (every 10ms):
 		  osDelay(10);
