@@ -1,0 +1,11 @@
+.program ws2812
+.side_set 1
+
+.wrap_target
+    out x, 1        side 0b1 [2]  ; Output 1 bit with side-set 1 for timing
+    jmp !x do_zero  side 0b1 [5]  ; If the bit is 0, jump to `do_zero`
+    nop             side 0b0 [2]  ; Send a 1 with side-set 0
+    nop             side 0b0 [0]  ; Delay after sending 1
+do_zero:
+    nop             side 0b0 [5]  ; Send 0 with side-set 0
+.wrap
