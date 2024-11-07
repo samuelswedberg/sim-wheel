@@ -31,6 +31,7 @@
 #include "stm32f4xx_hal.h"
 #include <math.h>
 #include <time.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,7 +55,7 @@ telemetry_packet telemetry_data;
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFFER_SIZE 256
-#define ENCODER_RESOLUTION 1024  // Example: number of counts per rotation
+#define ENCODER_RESOLUTION 2400  // Example: number of counts per rotation
 #define WHEEL_MAX_ANGLE 450      // Maximum angle for the lock (degrees)
 /* USER CODE END PD */
 
@@ -83,7 +84,18 @@ uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 
 float gFfbSignal;
+float gPWM;
+float gPWMConst;
+float gTotalforce;
 int16_t gPosition;
+
+/*
+ * Default strength is 0.5 (results in bell curve feedback)
+ * Over drive would be greater than 0.5
+ * example: Strength at 1 makes PWM reach 255 at ffbSignal at 0.5 from the game.
+ */
+float gStrength = 0.5;
+
 static int32_t last_encoder_count = 0;
 static uint32_t last_update_time = 0;
 /* USER CODE END PV */
@@ -199,7 +211,13 @@ float calculate_damping(float angular_velocity) {
 
 float calculate_friction(float angular_velocity) {
     float friction_coefficient = 0.02;
-    return -friction_coefficient * ((angular_velocity > 0) ? 1 : -1);
+    if (angular_velocity > 0) {
+        return -friction_coefficient;
+    } else if (angular_velocity < 0) {
+        return friction_coefficient;
+    } else {
+        return 0;
+    }
 }
 
 float calculate_lock(float angle) {
@@ -214,9 +232,10 @@ float calculate_lock(float angle) {
 }
 
 float scale_to_pwm(float total_force) {
-    // Assuming total force needs to be in PWM range (0-255)
-    float pwm_output = (total_force + 1) * 127.5; // Scale from [-1, 1] to [0, 255]
-    return constrain(pwm_output, 0, 255); // constrain to valid range
+	// Map total_force from -1..1 to 0..255
+	float pwm_output = fabs(total_force) * 255.0;
+	gPWM = pwm_output;
+	return constrain(pwm_output, 0, 255.0);
 }
 
 void init_encoder() {
@@ -241,18 +260,14 @@ float get_angle_degrees() {
 
 void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
     // Get the current encoder count
-    int32_t current_encoder_count = get_angle_degrees();
+    float current_angle = get_angle_degrees();
 
     // Calculate time difference (in seconds) since the last update
-    uint32_t current_time = HAL_GetTick();  // Assuming HAL for timing (ms)
+    uint32_t current_time = HAL_GetTick();  // In milliseconds
     float dt = (current_time - last_update_time) / 1000.0;  // Convert ms to seconds
 
-    // Update wheel position
-    // Calculate the change in encoder counts
-    int32_t delta_count = current_encoder_count - last_encoder_count;
-
-    // Convert encoder counts to wheel angle (degrees)
-    float delta_angle = (360.0 / ENCODER_RESOLUTION) * delta_count;
+    // Calculate the change in angle
+    float delta_angle = current_angle - last_encoder_count;
 
     // Update the wheel angle, keeping within the lock limit
     *wheel_angle += delta_angle;
@@ -267,9 +282,10 @@ void update_wheel_position_and_velocity(float *wheel_angle, float *angular_veloc
     }
 
     // Store the current values for the next update
-    last_encoder_count = current_encoder_count;
+    last_encoder_count = current_angle;
     last_update_time = current_time;
 }
+
 
 /* USER CODE END 0 */
 
@@ -794,14 +810,17 @@ void StartFFBTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  float force_feedback_signal, pwm_output;
 	  float wheel_angle = 0.0;
 	  float angular_velocity = 0.0;
 	  float total_force = 0.0;
 
+	  // Initialize last_update_time and last_encoder_count
+	  last_update_time = HAL_GetTick();            // Initialize time
+	  last_encoder_count = get_angle_degrees();    // Initialize encoder count
+
 	  for (;;) {
 		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
-		  force_feedback_signal = gFfbSignal;
+		  float force_feedback_signal = gFfbSignal;
 
 		  // Step 2: Calculate individual forces based on physics:
 		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
@@ -811,12 +830,27 @@ void StartFFBTask(void const * argument)
 
 		  // Step 3: Sum all forces and scale to PWM range:
 		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
-		  pwm_output = scale_to_pwm(total_force);
 
-		  // Step 4: Send PWM signal to H-bridge for motor control:
-		  //set_motor_pwm(pwm_output);
+		  // Strength gain
+		  total_force *= gStrength;
 
-		  // Step 5: Update wheel position and velocity for next loop:
+		  total_force = constrain(total_force, -1.0, 1.0);
+
+
+		  // Step 4: Map total_force to PWM and determine direction
+		  float pwm_output = scale_to_pwm(total_force);
+		  // 0 is negative direction; 1 is positive direction
+		  uint8_t motor_direction = (total_force >= 0) ? 1 : 0;
+
+		  // Debug
+		  gTotalforce = total_force;
+		  gPWMConst = pwm_output;
+
+		  // Step 5: Send PWM signal to H-bridge for motor control:
+		  //set_motor_direction(motor_direction);
+		  //set_motor_pwm(pwm_value);
+
+		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
 		  // Run this task periodically (every 10ms):
