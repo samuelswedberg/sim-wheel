@@ -1,1 +1,7 @@
-../Core/Src/freertos.c:62:6:vApplicationGetIdleTaskMemory	24	static
+../Core/Src/freertos.c:77:6:vApplicationGetIdleTaskMemory	24	static
+../Core/Src/freertos.c:91:6:MX_FREERTOS_Init	168	static
+../Core/Src/freertos.c:151:6:StartDefaultTask	16	static
+../Core/Src/freertos.c:169:6:StartTelemetryTask	16	static
+../Core/Src/freertos.c:187:6:StartHeartbeatTask	16	static
+../Core/Src/freertos.c:205:6:StartSPISend	16	static
+../Core/Src/freertos.c:223:6:StartFFBTask	16	static
