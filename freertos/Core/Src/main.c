@@ -28,7 +28,10 @@
 #include <cJSON.h>
 #include <string.h>
 #include <stdio.h>
-#include "stm32f4xx_hal.h"  // Make sure to include the STM32 HAL header
+#include "stm32f4xx_hal.h"
+#include <math.h>
+#include <time.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,7 +46,6 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
-	int32_t tForceFB;
 } telemetry_packet;
 
 telemetry_packet telemetry_data;
@@ -53,6 +55,8 @@ telemetry_packet telemetry_data;
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BUFFER_SIZE 256
+#define ENCODER_RESOLUTION 2400  // Example: number of counts per rotation
+#define WHEEL_MAX_ANGLE 450.0f      // Maximum angle for the lock (degrees)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -64,18 +68,40 @@ TaskHandle_t spiTaskHandle;
 SPI_HandleTypeDef hspi2;
 DMA_HandleTypeDef hdma_spi2_tx;
 
+TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart2;
 
 osThreadId defaultTaskHandle;
 osThreadId telemetryTaskHandle;
 osThreadId heartbeatTaskHandle;
 osThreadId SPISendDataTaskHandle;
+osThreadId FFBTaskHandle;
 osSemaphoreId spiSendMutexHandle;
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received command
 
+float gFfbSignal;
+float gPWM;
+float gPWMConst;
+float gTotalforce;
+int16_t gPosition;
+uint8_t gDir;
+float wheel_angle = 0.0;
+float angular_velocity = 0.0;
+float gDelta;
+/*
+ * Default strength is 0.5 (results in bell curve feedback)
+ * Over drive would be greater than 0.5
+ * example: Strength at 1 makes PWM reach 255 at ffbSignal at 0.5 from the game.
+ */
+float gStrength = 0.1;
+
+static float last_encoder_count = 0;
+static float last_update_time = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,10 +110,13 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTelemetryTask(void const * argument);
 void StartHeartbeatTask(void const * argument);
 void StartSPISend(void const * argument);
+void StartFFBTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -118,7 +147,8 @@ void process_command(char* cmd) {
 		if (cJSON_IsNumber(pitLim)) { telemetry_data.tPitLim = pitLim->valueint; }
 		if (cJSON_IsNumber(fuel)) { telemetry_data.tFuel = fuel->valueint; }
 		if (cJSON_IsNumber(brakeBias)) { telemetry_data.tBrakeBias = brakeBias->valueint; }
-		if (cJSON_IsNumber(forceFB)) { telemetry_data.tForceFB = (float)forceFB->valuedouble; }
+
+		if (cJSON_IsNumber(forceFB)) { gFfbSignal = (float)forceFB->valuedouble; }
 		}
 		// Cleanup
 		cJSON_Delete(json_data);
@@ -157,6 +187,182 @@ void DWT_Delay_us(uint32_t us) {
     }
 }
 
+float oscillate() {
+    float period = 3.0;  // Oscillation period in seconds
+    float elapsed_time = HAL_GetTick() / 1000.0;  // Convert milliseconds to seconds
+
+    // Calculate the oscillation value using a sine wave
+    return sin((2 * M_PI * elapsed_time) / period);
+}
+
+float constrain(float x, float lower, float upper) {
+    if (x < lower) return lower;
+    if (x > upper) return upper;
+    return x;
+}
+
+float calculate_inertia(float force_feedback, float angular_velocity) {
+    static float previous_output = 0;
+    float inertia_coefficient = 0.1; // Fine-tune for feel
+    float inertia_force = inertia_coefficient * previous_output + (1 - inertia_coefficient) * force_feedback;
+    previous_output = inertia_force;
+    return inertia_force;
+}
+
+float calculate_damping(float angular_velocity) {
+    float damping_coefficient = 0.05;
+    return -damping_coefficient * angular_velocity;
+}
+
+float calculate_friction(float angular_velocity) {
+    float friction_coefficient = 0.02;
+    if (angular_velocity > 0) {
+        return -friction_coefficient;
+    } else if (angular_velocity < 0) {
+        return friction_coefficient;
+    } else {
+        return 0;
+    }
+}
+
+float calculate_lock(float angle) {
+    float lock_coefficient = 1.0;
+    float max_angle = 450.0;
+    if (angle > max_angle) {
+        return -lock_coefficient * (angle - max_angle);
+    } else if (angle < -max_angle) {
+        return -lock_coefficient * (angle + max_angle);
+    }
+    return 0;
+}
+
+//float scale_to_pwm(float total_force) {
+//    const float MIN_PWM = 50.0f;    // Minimum PWM value for the motor to start moving
+//    const float MAX_PWM = 255.0f;   // Maximum PWM value
+//    const float DEADBAND_THRESHOLD = 0.05f; // Adjust as needed
+//
+//    // Apply deadband
+//    if (fabs(total_force) < DEADBAND_THRESHOLD) {
+//        gPWM = 0.0f;
+//        return 0.0f;
+//    }
+//
+//    // Adjust total_force to account for deadband
+//    float adjusted_force = fabs(total_force) - DEADBAND_THRESHOLD;
+//
+//    // Normalize adjusted_force to range from 0 to 1
+//    float normalized_force = adjusted_force / (1.0f - DEADBAND_THRESHOLD);
+//
+//    // Calculate PWM output within the range MIN_PWM to MAX_PWM
+//    float pwm_output = normalized_force * (MAX_PWM - MIN_PWM) + MIN_PWM;
+//
+//    // Constrain PWM output to valid range
+//    pwm_output = constrain(pwm_output, MIN_PWM, MAX_PWM);
+//
+//    // Update debug variable
+//    gPWM = pwm_output;
+//
+//    return pwm_output;
+//}
+
+float scale_to_pwm(float total_force) {
+    const float MIN_PWM = 50.0f;    // Minimum PWM value for the motor to start moving
+    const float MAX_PWM = 255.0f;   // Maximum PWM value
+
+    // If total_force is zero, return zero PWM output
+    if (total_force == 0.0f) {
+        gPWM = 0.0f;
+        return 0.0f;
+    }
+
+    // Calculate PWM output
+    float pwm_output = fabs(total_force) * (MAX_PWM - MIN_PWM) + MIN_PWM;
+
+    // Constrain PWM output to valid range
+    pwm_output = constrain(pwm_output, MIN_PWM, MAX_PWM);
+
+    // Update debug variable
+    gPWM = pwm_output;
+
+    return pwm_output;
+}
+
+void init_encoder() {
+    // Start the encoder mode timer
+    HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+    reset_encoder_position();
+}
+
+int16_t read_encoder_position() {
+    return __HAL_TIM_GET_COUNTER(&htim2);  // Get the current encoder count
+}
+
+void reset_encoder_position() {
+    __HAL_TIM_SET_COUNTER(&htim2, 0);  // Reset the encoder count to zero
+}
+
+float get_angle_degrees() {
+    int16_t position = read_encoder_position();
+    gPosition = position;
+    return (position * 360.0) / ENCODER_RESOLUTION;
+}
+
+void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
+    // Get the current encoder count
+    float current_angle = get_angle_degrees();
+
+    // Calculate time difference (in seconds) since the last update
+    uint32_t current_time = HAL_GetTick();  // In milliseconds
+    float dt = (current_time - last_update_time) / 1000.0f;  // Convert ms to seconds
+
+    // Calculate the change in angle
+    float delta_angle = current_angle - last_encoder_count;
+
+    // Implement a threshold to ignore small changes
+    if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
+        delta_angle = 0.0f;
+    }
+
+    // Update the wheel angle, keeping within the lock limit
+    *wheel_angle += delta_angle;
+    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
+    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
+
+    gDelta = delta_angle;
+    // Calculate angular velocity (degrees per second)
+    if (dt > 0.0001f) {  // Avoid division by zero
+        *angular_velocity = delta_angle / dt;
+    } else {
+        *angular_velocity = 0.0f;
+    }
+
+    // Store the current values for the next update
+    last_encoder_count = current_angle;
+    last_update_time = current_time;
+}
+
+
+void set_motor_pwm(float pwm_value) {
+    // Assuming pwm_value ranges from 0 to 255
+    uint32_t pulse = (uint32_t)((pwm_value / 255.0) * htim3.Init.Period);
+
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse);
+}
+
+void set_motor_direction(uint8_t direction) {
+    if (direction == 1) { // Forward
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);   // IN1 = HIGH
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET); // IN2 = LOW
+    } else if (direction == 0) { // Reverse
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET); // IN1 = LOW
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);   // IN2 = HIGH
+    } else { // Stop
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);   // IN1 = LOW
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);   // IN2 = LOW
+    }
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -191,6 +397,8 @@ int main(void)
   MX_DMA_Init();
   MX_SPI2_Init();
   MX_USART2_UART_Init();
+  MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   telemetry_data.tRpm = 0;
   telemetry_data.tRpm = 0;
@@ -200,10 +408,12 @@ int main(void)
   telemetry_data.tPitLim = 0;
   telemetry_data.tFuel = 0;
   telemetry_data.tBrakeBias = 0;
-  telemetry_data.tForceFB = 0;
+  gFfbSignal = 0;
   memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
-
+  init_encoder();
   DWT_Init();
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -243,6 +453,10 @@ int main(void)
   /* definition and creation of SPISendDataTask */
   osThreadDef(SPISendDataTask, StartSPISend, osPriorityHigh, 0, 128);
   SPISendDataTaskHandle = osThreadCreate(osThread(SPISendDataTask), NULL);
+
+  /* definition and creation of FFBTask */
+  osThreadDef(FFBTask, StartFFBTask, osPriorityHigh, 0, 128);
+  FFBTaskHandle = osThreadCreate(osThread(FFBTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -356,6 +570,104 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 84 -1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1000 - 1;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 500;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+  HAL_TIM_MspPostInit(&htim3);
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -424,6 +736,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|LD2_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_2, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -436,6 +751,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB1 PB2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -509,9 +831,27 @@ void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
+
   for(;;)
   {
-	osDelay(1);
+	  //gFfbSignal = oscillate();
+	  // Define the proportional gain (adjust this value to change stiffness)
+//	  const float Kp = 1.0f;
+//	  const float deadband = 50.0f; // Deadband range in degrees
+//	  /* Infinite loop */
+//	  for(;;)
+//	  {
+//		  float error = wheel_angle;
+//
+//		  if (fabsf(error) < deadband) {
+//		      gFfbSignal = 0.0f;
+//		  } else {
+//		      gFfbSignal = -Kp * (error / WHEEL_MAX_ANGLE);
+//		      gFfbSignal = constrain(gFfbSignal, -1.0f, 1.0f);
+//		  }
+//		  // Small delay to allow other tasks to run
+//		  osDelay(10);
+//	  }
   }
   /* USER CODE END 5 */
 }
@@ -586,7 +926,7 @@ void StartSPISend(void const * argument)
 	  {
 		HAL_StatusTypeDef status;
 		uint8_t buffer[sizeof(telemetry_packet)];
-		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 1}; // DEBUG DATA
+		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; // DEBUG DATA
 		memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
 
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
@@ -610,6 +950,75 @@ void StartSPISend(void const * argument)
 	 osDelay(50);
   }
   /* USER CODE END StartSPISend */
+}
+
+/* USER CODE BEGIN Header_StartFFBTask */
+/**
+* @brief Function implementing the FFBTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartFFBTask */
+void StartFFBTask(void const * argument)
+{
+  /* USER CODE BEGIN StartFFBTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  float total_force = 0.0;
+	  const float Kp = 1.0f;
+
+	  for (;;) {
+		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
+		  float force_feedback_signal = gFfbSignal;
+
+		  // Step 2: Calculate individual forces based on physics:
+		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
+		  float damping_force = calculate_damping(angular_velocity);
+		  float friction_force = calculate_friction(angular_velocity);
+		  float lock_force = calculate_lock(wheel_angle);
+
+		  // Step 3: Sum all forces and scale to PWM range:
+		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
+
+		  // Strength gain
+		  total_force *= gStrength;
+
+		  total_force = constrain(total_force, -1.0, 1.0);
+
+		  // Deadband
+		  const float FORCE_DEADBAND_THRESHOLD = 0.05f; // Adjust as needed
+		  const float ANGLE_DEADBAND_THRESHOLD = 50.0f; // Adjust as needed
+		  float error = wheel_angle;
+		  if (fabsf(error) < ANGLE_DEADBAND_THRESHOLD)  {
+			  total_force = 0.0f;
+		  } else { // TEST CODE: gives increasing feedback farther away from center
+			  total_force = -Kp * (error / WHEEL_MAX_ANGLE);
+			  total_force = constrain(total_force, -1.0f, 1.0f);
+		  }
+
+		  // Step 4: Map total_force to PWM and determine direction
+		  float pwm_output = scale_to_pwm(total_force);
+		  // 0 is negative direction; 1 is positive direction
+		  uint8_t motor_direction = (total_force >= 0) ? 1 : 0;
+
+		  // Debug
+		  gDir = motor_direction;
+		  gTotalforce = total_force;
+		  gPWMConst = pwm_output;
+
+		  // Step 5: Send PWM signal to H-bridge for motor control:
+		  set_motor_direction(motor_direction);
+		  set_motor_pwm(pwm_output);
+
+		  // Step 6: Update wheel position and velocity for next loop:
+		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
+
+		  // Run this task periodically (every 10ms):
+		  osDelay(10);
+	  }
+  }
+  /* USER CODE END StartFFBTask */
 }
 
 /**
