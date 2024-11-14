@@ -19,12 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "dma.h"
-#include "spi.h"
-#include "tim.h"
-#include "usart.h"
-#include "usb_otg.h"
-#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -71,7 +65,19 @@ TaskHandle_t spiTaskHandle;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi2;
+DMA_HandleTypeDef hdma_spi2_tx;
 
+TIM_HandleTypeDef htim2;
+
+UART_HandleTypeDef huart2;
+
+osThreadId defaultTaskHandle;
+osThreadId telemetryTaskHandle;
+osThreadId heartbeatTaskHandle;
+osThreadId SPISendDataTaskHandle;
+osThreadId FFBTaskHandle;
+osSemaphoreId spiSendMutexHandle;
 /* USER CODE BEGIN PV */
 uint8_t rx_buffer[BUFFER_SIZE];  // Buffer to hold received data
 uint8_t tx_buffer[BUFFER_SIZE];  // Buffer to hold received data
@@ -92,14 +98,21 @@ float gStrength = 0.5;
 
 static int32_t last_encoder_count = 0;
 static uint32_t last_update_time = 0;
-
-extern osSemaphoreId spiSendSemaphoreHandle;
-extern osThreadId telemetryTaskHandle;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void MX_FREERTOS_Init(void);
+static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
+static void MX_SPI2_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_TIM2_Init(void);
+void StartDefaultTask(void const * argument);
+void StartTelemetryTask(void const * argument);
+void StartHeartbeatTask(void const * argument);
+void StartSPISend(void const * argument);
+void StartFFBTask(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -293,7 +306,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  MX_USB_DEVICE_Init();
+
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -309,9 +322,7 @@ int main(void)
   MX_SPI2_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
-  MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
-
   telemetry_data.tRpm = 0;
   telemetry_data.tRpm = 0;
   telemetry_data.tSpeedKmh = 0;
@@ -326,8 +337,51 @@ int main(void)
   DWT_Init();
   /* USER CODE END 2 */
 
-  /* Call init function for freertos objects (in cmsis_os2.c) */
-  MX_FREERTOS_Init();
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* definition and creation of spiSendMutex */
+  osSemaphoreDef(spiSendMutex);
+  spiSendMutexHandle = osSemaphoreCreate(osSemaphore(spiSendMutex), 1);
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of telemetryTask */
+  osThreadDef(telemetryTask, StartTelemetryTask, osPriorityHigh, 0, 128);
+  telemetryTaskHandle = osThreadCreate(osThread(telemetryTask), NULL);
+
+  /* definition and creation of heartbeatTask */
+  osThreadDef(heartbeatTask, StartHeartbeatTask, osPriorityLow, 0, 128);
+  heartbeatTaskHandle = osThreadCreate(osThread(heartbeatTask), NULL);
+
+  /* definition and creation of SPISendDataTask */
+  osThreadDef(SPISendDataTask, StartSPISend, osPriorityHigh, 0, 128);
+  SPISendDataTaskHandle = osThreadCreate(osThread(SPISendDataTask), NULL);
+
+  /* definition and creation of FFBTask */
+  osThreadDef(FFBTask, StartFFBTask, osPriorityHigh, 0, 128);
+  FFBTaskHandle = osThreadCreate(osThread(FFBTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
 
   /* Start scheduler */
   osKernelStart();
@@ -369,14 +423,15 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLM = 4;
-  RCC_OscInitStruct.PLL.PLLN = 72;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 3;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  RCC_OscInitStruct.PLL.PLLM = 16;
+  RCC_OscInitStruct.PLL.PLLN = 336;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLQ = 2;
   RCC_OscInitStruct.PLL.PLLR = 2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -398,12 +453,184 @@ void SystemClock_Config(void)
   }
 }
 
+/**
+  * @brief SPI2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI2_Init(void)
+{
+
+  /* USER CODE BEGIN SPI2_Init 0 */
+  /* USER CODE END SPI2_Init 0 */
+
+  /* USER CODE BEGIN SPI2_Init 1 */
+
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI2_Init 2 */
+  //HAL_SPI_Transmit_DMA(&hspi2, buffer, sizeof(telemetry_packet));
+  /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_Encoder_InitTypeDef sConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 4294967295;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+  sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC1Filter = 0;
+  sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+  sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+  sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+  sConfig.IC2Filter = 0;
+  if (HAL_TIM_Encoder_Init(&htim2, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+  HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+
+}
+
+/**
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPIO_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4|LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : B1_Pin */
+  GPIO_InitStruct.Pin = B1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA4 LD2_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|LD2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
+}
+
 /* USER CODE BEGIN 4 */
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
     // Pull CS line high to deselect the slave
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
     DWT_Delay_us(2);
-    osSemaphoreRelease(spiSendSemaphoreHandle);
+    osSemaphoreRelease(spiSendMutexHandle);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -454,6 +681,184 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 }
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+
+  for(;;)
+  {
+	  gFfbSignal = oscillate();
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartTelemetryTask */
+/**
+* @brief Function implementing the telemetryTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTelemetryTask */
+void StartTelemetryTask(void const * argument)
+{
+  /* USER CODE BEGIN StartTelemetryTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	// Wait for notification from UART callback
+	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	// Process the command received via UART
+	process_command(gCommandData);
+
+	// Introduce a delay if necessary
+	vTaskDelay(pdMS_TO_TICKS(100)); // Adjust delay as needed
+	// Re-enable UART reception
+	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+
+	osDelay(1);
+  }
+  /* USER CODE END StartTelemetryTask */
+}
+
+/* USER CODE BEGIN Header_StartHeartbeatTask */
+/**
+* @brief Function implementing the heartbeatTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartHeartbeatTask */
+void StartHeartbeatTask(void const * argument)
+{
+  /* USER CODE BEGIN StartHeartbeatTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	// Perform actions based on telemetry data
+	if (telemetry_data.tRpm >= 7000) {
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+	} else {
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+	}
+    osDelay(1);
+  }
+  /* USER CODE END StartHeartbeatTask */
+}
+
+/* USER CODE BEGIN Header_StartSPISend */
+/**
+* @brief Function implementing the SPISendDataTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartSPISend */
+void StartSPISend(void const * argument)
+{
+  /* USER CODE BEGIN StartSPISend */
+  /* Infinite loop */
+
+  while(1)
+  {
+	  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK)
+	  {
+		HAL_StatusTypeDef status;
+		uint8_t buffer[sizeof(telemetry_packet)];
+		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; // DEBUG DATA
+		memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
+
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
+
+		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet)); // DEBUG DATA
+
+		//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet)); // REAL DATA
+
+		//uint8_t data = 0x0F;  // Test byte
+		//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
+
+		//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
+		//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
+
+		// Check for errors
+		if (status != HAL_OK) {
+			send_response("SPI Transmission Error");
+		}
+		// Wait for transmission to complete (optional but safer)
+	  }
+	 osDelay(50);
+  }
+  /* USER CODE END StartSPISend */
+}
+
+/* USER CODE BEGIN Header_StartFFBTask */
+/**
+* @brief Function implementing the FFBTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartFFBTask */
+void StartFFBTask(void const * argument)
+{
+  /* USER CODE BEGIN StartFFBTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  float wheel_angle = 0.0;
+	  float angular_velocity = 0.0;
+	  float total_force = 0.0;
+
+	  // Initialize last_update_time and last_encoder_count
+	  last_update_time = HAL_GetTick();            // Initialize time
+	  last_encoder_count = get_angle_degrees();    // Initialize encoder count
+
+	  for (;;) {
+		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
+		  float force_feedback_signal = gFfbSignal;
+
+		  // Step 2: Calculate individual forces based on physics:
+		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
+		  float damping_force = calculate_damping(angular_velocity);
+		  float friction_force = calculate_friction(angular_velocity);
+		  float lock_force = calculate_lock(wheel_angle);
+
+		  // Step 3: Sum all forces and scale to PWM range:
+		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
+
+		  // Strength gain
+		  total_force *= gStrength;
+
+		  total_force = constrain(total_force, -1.0, 1.0);
+
+
+		  // Step 4: Map total_force to PWM and determine direction
+		  float pwm_output = scale_to_pwm(total_force);
+		  // 0 is negative direction; 1 is positive direction
+		  uint8_t motor_direction = (total_force >= 0) ? 1 : 0;
+
+		  // Debug
+		  gTotalforce = total_force;
+		  gPWMConst = pwm_output;
+
+		  // Step 5: Send PWM signal to H-bridge for motor control:
+		  //set_motor_direction(motor_direction);
+		  //set_motor_pwm(pwm_value);
+
+		  // Step 6: Update wheel position and velocity for next loop:
+		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
+
+		  // Run this task periodically (every 10ms):
+		  osDelay(10);
+	  }
+  }
+  /* USER CODE END StartFFBTask */
+}
 
 /**
   * @brief  Period elapsed callback in non blocking mode
