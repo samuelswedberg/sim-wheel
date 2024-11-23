@@ -82,6 +82,11 @@ void send_response(const char* str) {
     HAL_UART_Transmit(&huart2, (uint8_t*)str, len, HAL_MAX_DELAY);
 }
 
+int _write(int file, char *data, int len) {
+    // Replace 'huart2' with your specific UART handle (e.g., 'huart1', 'huart3', etc.)
+    HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
+    return len;
+}
 /* USER CODE END 0 */
 
 /**

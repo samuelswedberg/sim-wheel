@@ -38,6 +38,7 @@
 #include <tim.h>
 #include <spi.h>
 #include <usb_otg.h>
+#include <usbd_hid_custom_if.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -57,12 +58,16 @@ typedef struct __attribute__((packed)){
 telemetry_packet telemetry_data;
 
 typedef struct {
-    int8_t  steering;       // X axis (Steering)
-    uint8_t accelerator;    // Y axis (Accelerator)
-    uint8_t brake;          // Z axis (Brake)
-    uint16_t buttons;       // 16 buttons
-} __attribute__((packed)) HID_Report_t;
+	uint8_t steering;          // Steering Wheel (1 byte, 0-255)
+	uint8_t throttle;          // Pedal: Throttle (1 byte, 0-255)
+	uint8_t brake;             // Pedal: Brake (1 byte, 0-255)
+	uint8_t clutch;            // Pedal: Clutch (1 byte, 0-255)
+	uint16_t buttons;          // Buttons (16 bits, 0-1 per bit for Button 1-16)
+	uint8_t dpad : 4;          // D-pad (4 bits, 0-7 for direction)
+	uint8_t padding : 4;       // Padding for alignment (4 bits, constant 0)
+} __attribute__((packed)) HIDReport_t;
 
+HIDReport_t HIDReport;
 
 /* USER CODE END PTD */
 
@@ -174,6 +179,17 @@ void MX_FREERTOS_Init(void) {
 	telemetry_data.tFuel = 0;
 	telemetry_data.tBrakeBias = 0;
 	gFfbSignal = 0;
+
+	HIDReport_t HIDReport = {
+	    .steering = 127,  // Neutral steering
+	    .throttle = 0,    // No throttle
+	    .brake = 0,       // No brake
+	    .clutch = 0,      // No clutch
+	    .buttons = 0,     // No buttons pressed
+	    .dpad = 0xF,      // D-pad centered (null state)
+	    .padding = 0      // Padding (set to 0)
+	};
+
 	memset(&telemetry_data, 0, sizeof(telemetry_packet)); // Zero-initialize
   /* USER CODE END Init */
 
@@ -441,18 +457,18 @@ void startHIDTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  HID_Report_t report;
+
 //	  report.steering = getSteeringValue();       // Function to read steering value (-127 to +127)
 //	  report.accelerator = getAcceleratorValue(); // Function to read accelerator value (0 to 255)
 //	  report.brake = getBrakeValue();             // Function to read brake value (0 to 255)
 //	  report.buttons = getButtonStates();         // Function to read buttons as a 16-bit value
 
-	  report.steering = gSteering;       // Function to read steering value (-127 to +127)
-	  report.accelerator = gAccel; // Function to read accelerator value (0 to 255)
-	  report.brake = gBrake;             // Function to read brake value (0 to 255)
-	  report.buttons = 0;         // Function to read buttons as a 16-bit value
+	  HIDReport.steering = gSteering;       // Function to read steering value (-127 to +127)
+	  HIDReport.throttle = gAccel; // Function to read accelerator value (0 to 255)
+	  HIDReport.brake = gBrake;             // Function to read brake value (0 to 255)
 
-	  USBD_CUSTOM_HID_SendReport(report, sizeof(report));
+	  USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
+
   }
   /* USER CODE END startHIDTask */
 }

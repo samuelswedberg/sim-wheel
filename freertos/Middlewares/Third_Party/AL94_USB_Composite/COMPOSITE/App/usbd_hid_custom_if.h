@@ -59,6 +59,7 @@
 #include "usbd_hid_custom.h"
 
 /* USER CODE BEGIN INCLUDE */
+ int8_t USBD_CUSTOM_HID_SendCustomReport(uint8_t *report, uint16_t len);
 
 /* USER CODE END INCLUDE */
 
