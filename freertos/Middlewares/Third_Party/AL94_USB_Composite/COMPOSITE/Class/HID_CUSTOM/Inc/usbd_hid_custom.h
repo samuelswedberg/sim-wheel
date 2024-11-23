@@ -42,7 +42,7 @@ extern "C" {
   * @{
   */
 
-#define CUSTOM_HID_STR_DESC                          "STM32 HID CUSTOM"
+#define CUSTOM_HID_STR_DESC                          "STM32 SIM WHEEL"
 
 #define CUSTOM_HID_EPIN_SIZE                         0x02U
 #define CUSTOM_HID_EPOUT_SIZE                        0x02U
@@ -63,7 +63,7 @@ extern "C" {
 #endif /* USBD_CUSTOMHID_OUTREPORT_BUF_SIZE */
 
 #ifndef USBD_CUSTOM_HID_REPORT_DESC_SIZE
-#define USBD_CUSTOM_HID_REPORT_DESC_SIZE             33U
+#define USBD_CUSTOM_HID_REPORT_DESC_SIZE             82U
 #endif /* USBD_CUSTOM_HID_REPORT_DESC_SIZE */
 
 #define CUSTOM_HID_DESCRIPTOR_TYPE                   0x21U

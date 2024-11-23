@@ -37,6 +37,7 @@
 #include <usart.h>
 #include <tim.h>
 #include <spi.h>
+#include <usb_otg.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -54,6 +55,15 @@ typedef struct __attribute__((packed)){
 } telemetry_packet;
 
 telemetry_packet telemetry_data;
+
+typedef struct {
+    int8_t  steering;       // X axis (Steering)
+    uint8_t accelerator;    // Y axis (Accelerator)
+    uint8_t brake;          // Z axis (Brake)
+    uint16_t buttons;       // 16 buttons
+} __attribute__((packed)) HID_Report_t;
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -84,6 +94,9 @@ float wheel_angle = 0.0;
 float angular_velocity = 0.0;
 float gDelta;
 
+float gBrake = 0;
+float gAccel = 0;
+float gSteering = 0;
 
 /*
  * Default strength is 0.5 (results in bell curve feedback)
@@ -100,6 +113,7 @@ osThreadId telemetryTaskHandle;
 osThreadId heartbeatTaskHandle;
 osThreadId SPISendDataTaskHandle;
 osThreadId FFBTaskHandle;
+osThreadId sendHIDTaskHandle;
 osSemaphoreId spiSendMutexHandle;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -124,6 +138,7 @@ void StartTelemetryTask(void const * argument);
 void StartHeartbeatTask(void const * argument);
 void StartSPISend(void const * argument);
 void StartFFBTask(void const * argument);
+void startHIDTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -203,6 +218,10 @@ void MX_FREERTOS_Init(void) {
   /* definition and creation of FFBTask */
   osThreadDef(FFBTask, StartFFBTask, osPriorityHigh, 0, 128);
   FFBTaskHandle = osThreadCreate(osThread(FFBTask), NULL);
+
+  /* definition and creation of sendHIDTask */
+  osThreadDef(sendHIDTask, startHIDTask, osPriorityHigh, 0, 512);
+  sendHIDTaskHandle = osThreadCreate(osThread(sendHIDTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -407,6 +426,35 @@ void StartFFBTask(void const * argument)
 	  }
   }
   /* USER CODE END StartFFBTask */
+}
+
+/* USER CODE BEGIN Header_startHIDTask */
+/**
+* @brief Function implementing the sendHIDTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startHIDTask */
+void startHIDTask(void const * argument)
+{
+  /* USER CODE BEGIN startHIDTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  HID_Report_t report;
+//	  report.steering = getSteeringValue();       // Function to read steering value (-127 to +127)
+//	  report.accelerator = getAcceleratorValue(); // Function to read accelerator value (0 to 255)
+//	  report.brake = getBrakeValue();             // Function to read brake value (0 to 255)
+//	  report.buttons = getButtonStates();         // Function to read buttons as a 16-bit value
+
+	  report.steering = gSteering;       // Function to read steering value (-127 to +127)
+	  report.accelerator = gAccel; // Function to read accelerator value (0 to 255)
+	  report.brake = gBrake;             // Function to read brake value (0 to 255)
+	  report.buttons = 0;         // Function to read buttons as a 16-bit value
+
+	  USBD_CUSTOM_HID_SendReport(report, sizeof(report));
+  }
+  /* USER CODE END startHIDTask */
 }
 
 /* Private application code --------------------------------------------------*/

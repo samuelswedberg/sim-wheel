@@ -120,21 +120,55 @@ uint8_t buffer[0x40];
 __ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc[USBD_CUSTOM_HID_REPORT_DESC_SIZE] __ALIGN_END =
     {
         /* USER CODE BEGIN 0 */
-        0x06, 0x00, 0xff, //Usage Page(Undefined )
-        0x09, 0x01,       // USAGE (Undefined)
-        0xa1, 0x01,       // COLLECTION (Application)
-        0x15, 0x00,       //   LOGICAL_MINIMUM (0)
-        0x26, 0xff, 0x00, //   LOGICAL_MAXIMUM (255)
-        0x75, 0x08,       //   REPORT_SIZE (8)
-        0x95, 0x40,       //   REPORT_COUNT (64)
-        0x09, 0x01,       //   USAGE (Undefined)
-        0x81, 0x02,       //   INPUT (Data,Var,Abs)
-        0x95, 0x40,       //   REPORT_COUNT (64)
-        0x09, 0x01,       //   USAGE (Undefined)
-        0x91, 0x02,       //   OUTPUT (Data,Var,Abs)
-        0x95, 0x01,       //   REPORT_COUNT (1)
-        0x09, 0x01,       //   USAGE (Undefined)
-        0xb1, 0x02,       //   FEATURE (Data,Var,Abs)
+    		0x05, 0x01,       // Usage Page (Generic Desktop Controls)
+			0x09, 0x04,       // Usage (Joystick)
+			0xA1, 0x01,       // Collection (Application)
+
+			// Steering Wheel
+			0x05, 0x02,       //   Usage Page (Simulation Controls)
+			0x09, 0xBB,       //   Usage (Steering)
+			0x15, 0x00,       //   Logical Minimum (0)
+			0x26, 0xFF, 0x00, //   Logical Maximum (255)
+			0x75, 0x08,       //   Report Size (8)
+			0x95, 0x01,       //   Report Count (1)
+			0x81, 0x02,       //   Input (Data, Var, Abs)
+
+			// Pedals (Throttle, Brake, Clutch)
+			0x09, 0xC5,       //   Usage (Throttle)
+			0x09, 0xC4,       //   Usage (Brake)
+			0x09, 0xC3,       //   Usage (Clutch)
+			0x15, 0x00,       //   Logical Minimum (0)
+			0x26, 0xFF, 0x00, //   Logical Maximum (255)
+			0x75, 0x08,       //   Report Size (8)
+			0x95, 0x03,       //   Report Count (3)
+			0x81, 0x02,       //   Input (Data, Var, Abs)
+
+			// Buttons
+			0x05, 0x09,       //   Usage Page (Button)
+			0x19, 0x01,       //   Usage Minimum (Button 1)
+			0x29, 0x10,       //   Usage Maximum (Button 16)
+			0x15, 0x00,       //   Logical Minimum (0)
+			0x25, 0x01,       //   Logical Maximum (1)
+			0x75, 0x01,       //   Report Size (1)
+			0x95, 0x10,       //   Report Count (16)
+			0x81, 0x02,       //   Input (Data, Var, Abs)
+
+			// D-pad (POV Hat Switch)
+			0x05, 0x01,       //   Usage Page (Generic Desktop Controls)
+			0x09, 0x39,       //   Usage (Hat Switch)
+			0x15, 0x00,       //   Logical Minimum (0)
+			0x25, 0x07,       //   Logical Maximum (7)
+			0x35, 0x00,       //   Physical Minimum (0)
+			0x46, 0x3B, 0x01, //   Physical Maximum (315 degrees)
+			0x65, 0x14,       //   Unit (Eng Rot:Angular Pos)
+			0x75, 0x04,       //   Report Size (4)
+			0x95, 0x01,       //   Report Count (1)
+			0x81, 0x42,       //   Input (Data, Var, Abs, Null)
+
+			// Padding for alignment
+			0x75, 0x04,       //   Report Size (4)
+			0x95, 0x01,       //   Report Count (1)
+			0x81, 0x03,       //   Input (Const, Var, Abs)
 
         /* USER CODE END 0 */
         0xC0 /*     END_COLLECTION	             */
@@ -230,12 +264,7 @@ static int8_t CUSTOM_HID_OutEvent(uint8_t event_idx, uint8_t state)
   * @param  len: The report length
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
-/*
-static int8_t USBD_CUSTOM_HID_SendReport(uint8_t *report, uint16_t len)
-{
-  return USBD_CUSTOM_HID_SendReport(&hUsbDevice, report, len);
-}
-*/
+
 /* USER CODE END 7 */
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
