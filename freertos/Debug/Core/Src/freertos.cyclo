@@ -1,11 +1,11 @@
 ../Core/Src/freertos.c:157:6:vApplicationGetIdleTaskMemory	1
 ../Core/Src/freertos.c:171:6:MX_FREERTOS_Init	1
-../Core/Src/freertos.c:255:6:StartDefaultTask	1
-../Core/Src/freertos.c:290:6:StartTelemetryTask	1
-../Core/Src/freertos.c:318:6:StartHeartbeatTask	2
-../Core/Src/freertos.c:342:6:StartSPISend	3
-../Core/Src/freertos.c:385:6:StartFFBTask	2
-../Core/Src/freertos.c:454:6:startHIDTask	1
+../Core/Src/freertos.c:252:6:StartDefaultTask	1
+../Core/Src/freertos.c:287:6:StartTelemetryTask	1
+../Core/Src/freertos.c:315:6:StartHeartbeatTask	2
+../Core/Src/freertos.c:339:6:StartSPISend	3
+../Core/Src/freertos.c:382:6:StartFFBTask	2
+../Core/Src/freertos.c:451:6:startHIDTask	1
 ../Core/Src/freertos.c:479:6:DWT_Init	2
 ../Core/Src/freertos.c:488:6:DWT_Delay_us	2
 ../Core/Src/freertos.c:497:6:process_command	11
