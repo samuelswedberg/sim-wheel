@@ -120,66 +120,50 @@ uint8_t buffer[0x40];
 __ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc[USBD_CUSTOM_HID_REPORT_DESC_SIZE] __ALIGN_END =
     {
         /* USER CODE BEGIN 0 */
-    		0x05, 0x01,       // Usage Page (Generic Desktop Controls)
-			0x09, 0x04,       // Usage (Joystick)
-			0xA1, 0x01,       // Collection (Application)
+		// Usage Page (Generic Desktop Controls)
+		0x05, 0x01,
+		// Usage (Joystick)
+		0x09, 0x04,
+		// Collection (Application)
+		0xA1, 0x01,
 
-			// Steering (X Axis)
-			0x05, 0x01,       //   Usage Page (Generic Desktop Controls)
-			0x09, 0x30,       //   Usage (X)
-			0x15, 0x00,       //   Logical Minimum (0)
-			0x26, 0xFF, 0x00, //   Logical Maximum (255)
-			0x75, 0x08,       //   Report Size (8 bits)
-			0x95, 0x01,       //   Report Count (1)
-			0x81, 0x02,       //   Input (Data, Var, Abs)
+		// Steering Wheel (X Axis)
+		0x09, 0x30,       // Usage (X)
+		0x15, 0x00,       // Logical Minimum (0)
+		0x26, 0xFF, 0x00, // Logical Maximum (255)
+		0x75, 0x08,       // Report Size (8 bits)
+		0x95, 0x01,       // Report Count (1)
+		0x81, 0x02,       // Input (Data, Var, Abs)
 
-			// Pedals (Throttle, Brake, Clutch)
-			0x05, 0x02,       //   Usage Page (Simulation Controls)
-			0x09, 0xC5,       //   Usage (Throttle)
-			0x09, 0xC4,       //   Usage (Brake)
-			0x09, 0xC3,       //   Usage (Clutch)
-			0x15, 0x00,       //   Logical Minimum (0)
-			0x26, 0xFF, 0x00, //   Logical Maximum (255)
-			0x75, 0x08,       //   Report Size (8 bits)
-			0x95, 0x03,       //   Report Count (3)
-			0x81, 0x02,       //   Input (Data, Var, Abs)
+		// Pedals (Throttle, Brake, Clutch)
+		0x09, 0x32,       // Usage (Z) - Throttle
+		0x09, 0x33,       // Usage (Rx) - Brake
+		0x09, 0x34,       // Usage (Ry) - Clutch
+		0x15, 0x00,       // Logical Minimum (0)
+		0x26, 0xFF, 0x00, // Logical Maximum (255)
+		0x75, 0x08,       // Report Size (8 bits)
+		0x95, 0x03,       // Report Count (3)
+		0x81, 0x02,       // Input (Data, Var, Abs)
 
-			// Buttons (16 buttons)
-			0x05, 0x09,       //   Usage Page (Button)
-			0x19, 0x01,       //   Usage Minimum (Button 1)
-			0x29, 0x10,       //   Usage Maximum (Button 16)
-			0x15, 0x00,       //   Logical Minimum (0)
-			0x25, 0x01,       //   Logical Maximum (1)
-			0x75, 0x01,       //   Report Size (1 bit)
-			0x95, 0x10,       //   Report Count (16 bits)
-			0x81, 0x02,       //   Input (Data, Var, Abs)
+		// Buttons (32 buttons)
+		0x05, 0x09,       // Usage Page (Button)
+		0x19, 0x01,       // Usage Minimum (Button 1)
+		0x29, 0x20,       // Usage Maximum (Button 32)
+		0x15, 0x00,       // Logical Minimum (0)
+		0x25, 0x01,       // Logical Maximum (1)
+		0x75, 0x01,       // Report Size (1 bit)
+		0x95, 0x20,       // Report Count (32 bits)
+		0x81, 0x02,       // Input (Data, Var, Abs)
 
-			// Sliders (Extra axes for encoders or sliders)
-			0x05, 0x01,       //   Usage Page (Generic Desktop Controls)
-			0x09, 0x36,       //   Usage (Slider)
-			0x09, 0x37,       //   Usage (Dial)
-			0x15, 0x00,       //   Logical Minimum (0)
-			0x26, 0xFF, 0x00, //   Logical Maximum (255)
-			0x75, 0x08,       //   Report Size (8 bits)
-			0x95, 0x02,       //   Report Count (2)
-			0x81, 0x02,       //   Input (Data, Var, Abs)
-
-			// D-pad (Hat Switch)
-			0x05, 0x01,       //   Usage Page (Generic Desktop Controls)
-			0x09, 0x39,       //   Usage (Hat Switch)
-			0x15, 0x00,       //   Logical Minimum (0)
-			0x25, 0x07,       //   Logical Maximum (7)
-			0x35, 0x00,       //   Physical Minimum (0)
-			0x46, 0x3B, 0x01, //   Physical Maximum (315 degrees)
-			0x65, 0x14,       //   Unit (Eng Rot:Angular Pos)
-			0x75, 0x04,       //   Report Size (4 bits)
-			0x95, 0x01,       //   Report Count (1)
-			0x81, 0x42,       //   Input (Data, Var, Abs, Null)
-
-			// Padding for alignment
-			0x75, 0x04,       //   Report Size (4 bits)
-			0x95, 0x01,       //   Report Count (1)
-			0x81, 0x03,       //   Input (Const, Var, Abs)
+		// Encoders (Rz and Slider)
+		0x05, 0x01,       // Usage Page (Generic Desktop Controls)
+		0x09, 0x35,       // Usage (Rz) - Encoder 1
+		0x09, 0x36,       // Usage (Slider) - Encoder 2
+		0x15, 0x00,       // Logical Minimum (0)
+		0x26, 0xFF, 0x00, // Logical Maximum (255)
+		0x75, 0x08,       // Report Size (8 bits)
+		0x95, 0x02,       // Report Count (2)
+		0x81, 0x02,       // Input (Data, Var, Abs)
 
         /* USER CODE END 0 */
         0xC0 /*     END_COLLECTION	             */
