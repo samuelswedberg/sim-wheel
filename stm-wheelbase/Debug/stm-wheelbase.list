@@ -4401,7 +4401,7 @@ void process_command(char* cmd) {
  80021de:	6af8      	ldr	r0, [r7, #44]	@ 0x2c
  80021e0:	f7fe ff62 	bl	80010a8 <cJSON_Delete>
 		// Clear the buffer for the next message
-		memset(command_data, 0, BUFFER_SIZE);
+		memset(gCommandData, 0, BUFFER_SIZE);
  80021e4:	f44f 7280 	mov.w	r2, #256	@ 0x100
  80021e8:	2100      	movs	r1, #0
  80021ea:	4816      	ldr	r0, [pc, #88]	@ (8002244 <process_command+0x16c>)
@@ -4487,7 +4487,7 @@ int main(void)
  8002276:	2b00      	cmp	r3, #0
  8002278:	d0fa      	beq.n	8002270 <main+0x20>
 	  {
-		  process_command(command_data);
+		  process_command(gCommandData);
  800227a:	4813      	ldr	r0, [pc, #76]	@ (80022c8 <main+0x78>)
  800227c:	f7ff ff2c 	bl	80020d8 <process_command>
 		  command_flag = 0;
@@ -4884,7 +4884,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
  80024ee:	4293      	cmp	r3, r2
  80024f0:	d111      	bne.n	8002516 <HAL_UART_RxCpltCallback+0x36>
         // Process the received data (rx_buffer)
-    	memcpy(command_data, rx_buffer, sizeof(rx_buffer));
+    	memcpy(gCommandData, rx_buffer, sizeof(rx_buffer));
  80024f2:	4a0c      	ldr	r2, [pc, #48]	@ (8002524 <HAL_UART_RxCpltCallback+0x44>)
  80024f4:	4b0c      	ldr	r3, [pc, #48]	@ (8002528 <HAL_UART_RxCpltCallback+0x48>)
  80024f6:	4610      	mov	r0, r2

@@ -79,7 +79,7 @@ HIDReport_t HIDReport;
 #define BUFFER_SIZE 256
 #define MAX_REVOLUTIONS 2
 #define ADC_RESOLUTION 4096
-#define ADC_MAX_VOLTAGE 5.0
+#define ADC_MAX_VOLTAGE 4.9
 
 /* USER CODE END PD */
 
@@ -109,6 +109,7 @@ float gSteering = 0;
 
 float hall_voltage = 0;
 float max_hall_voltage = 0;
+float gHall = 0;
 uint32_t max_position = 0;
 
 /*
@@ -336,16 +337,17 @@ void StartControlLoop(void const * argument)
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
-		  if (osSemaphoreWait(uartMutexHandle, osWaitForever) == osOK) {
+		  if (osSemaphoreWait(uartMutexHandle, 10) == osOK) {
 			  runUART();
 		  }
 
-		  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK) {
+		  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
 			  runSPI();
 		  }
 
 		  runReport();
 
+		  gHall = read_hall_sensor();
 		  // Run this task periodically (every 10ms):
 		  osDelay(10);
 	  }
@@ -443,13 +445,8 @@ void runSPI() {
 }
 
 void runUART() {
-	// Wait for notification from UART callback
-	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 	// Process the command received via UART
 	process_command(gCommandData);
-
-	// Introduce a delay if necessary
-	vTaskDelay(pdMS_TO_TICKS(100)); // Adjust delay as needed
 	// Re-enable UART reception
 	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
 }

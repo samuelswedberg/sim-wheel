@@ -3964,9 +3964,9 @@ LOAD C:/ST/STM32CubeIDE_1.16.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .bss.rx_buffer
                 0x2000024c      0x100 ./Core/Src/main.o
                 0x2000024c                rx_buffer
- .bss.command_data
+ .bss.gCommandData
                 0x2000034c      0x100 ./Core/Src/main.o
-                0x2000034c                command_data
+                0x2000034c                gCommandData
  .bss.command_flag
                 0x2000044c        0x1 ./Core/Src/main.o
                 0x2000044c                command_flag
