@@ -37,6 +37,7 @@
 #include <usart.h>
 #include <tim.h>
 #include <spi.h>
+#include <adc.h>
 #include <usb_otg.h>
 #include <usbd_hid_custom_if.h>
 /* USER CODE END Includes */
@@ -76,6 +77,9 @@ HIDReport_t HIDReport;
 #define ENCODER_RESOLUTION 2400  // Example: number of counts per rotation
 #define WHEEL_MAX_ANGLE 450.0f      // Maximum angle for the lock (degrees)
 #define BUFFER_SIZE 256
+#define MAX_REVOLUTIONS 2
+#define ADC_RESOLUTION 4096
+#define ADC_MAX_VOLTAGE 5.0
 
 /* USER CODE END PD */
 
@@ -93,7 +97,7 @@ uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received com
 float gPWM;
 float gPWMConst;
 float gTotalforce;
-int16_t gPosition;
+volatile int16_t gPosition;
 uint8_t gDir;
 float wheel_angle = 0.0;
 float angular_velocity = 0.0;
@@ -102,6 +106,10 @@ float gDelta;
 float gBrake = 0;
 float gAccel = 0;
 float gSteering = 0;
+
+float hall_voltage = 0;
+float max_hall_voltage = 0;
+uint32_t max_position = 0;
 
 /*
  * Default strength is 0.5 (results in bell curve feedback)
@@ -114,15 +122,15 @@ static float last_encoder_count = 0;
 static float last_update_time = 0;
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
-osThreadId telemetryTaskHandle;
-osThreadId heartbeatTaskHandle;
-osThreadId SPISendDataTaskHandle;
-osThreadId FFBTaskHandle;
-osThreadId sendHIDTaskHandle;
+osThreadId ControlLoopTaskHandle;
 osSemaphoreId spiSendMutexHandle;
+osSemaphoreId uartMutexHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+void runUART();
+void runSPI();
+void runReport();
 float constrain(float x, float lower, float upper);
 float calculate_inertia(float force_feedback, float angular_velocity);
 float calculate_damping(float angular_velocity);
@@ -136,14 +144,15 @@ float get_angle_degrees();
 void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity);
 void set_motor_pwm(float pwm_value);
 void set_motor_direction(uint8_t direction);
+uint8_t map_wheel_position_to_axis(int32_t position);
+void motor_rotate_left();
+void motor_rotate_right();
+float read_hall_sensor();
+void move_to_position(uint32_t target_position);
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
-void StartTelemetryTask(void const * argument);
-void StartHeartbeatTask(void const * argument);
-void StartSPISend(void const * argument);
-void StartFFBTask(void const * argument);
-void startHIDTask(void const * argument);
+void StartControlLoop(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -199,6 +208,10 @@ void MX_FREERTOS_Init(void) {
   osSemaphoreDef(spiSendMutex);
   spiSendMutexHandle = osSemaphoreCreate(osSemaphore(spiSendMutex), 1);
 
+  /* definition and creation of uartMutex */
+  osSemaphoreDef(uartMutex);
+  uartMutexHandle = osSemaphoreCreate(osSemaphore(uartMutex), 1);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
@@ -216,25 +229,9 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
-  /* definition and creation of telemetryTask */
-  osThreadDef(telemetryTask, StartTelemetryTask, osPriorityHigh, 0, 128);
-  telemetryTaskHandle = osThreadCreate(osThread(telemetryTask), NULL);
-
-  /* definition and creation of heartbeatTask */
-  osThreadDef(heartbeatTask, StartHeartbeatTask, osPriorityLow, 0, 128);
-  heartbeatTaskHandle = osThreadCreate(osThread(heartbeatTask), NULL);
-
-  /* definition and creation of SPISendDataTask */
-  osThreadDef(SPISendDataTask, StartSPISend, osPriorityHigh, 0, 128);
-  SPISendDataTaskHandle = osThreadCreate(osThread(SPISendDataTask), NULL);
-
-  /* definition and creation of FFBTask */
-  osThreadDef(FFBTask, StartFFBTask, osPriorityHigh, 0, 128);
-  FFBTaskHandle = osThreadCreate(osThread(FFBTask), NULL);
-
-  /* definition and creation of sendHIDTask */
-  osThreadDef(sendHIDTask, startHIDTask, osPriorityHigh, 0, 512);
-  sendHIDTaskHandle = osThreadCreate(osThread(sendHIDTask), NULL);
+  /* definition and creation of ControlLoopTask */
+  osThreadDef(ControlLoopTask, StartControlLoop, osPriorityHigh, 0, 128);
+  ControlLoopTaskHandle = osThreadCreate(osThread(ControlLoopTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -277,111 +274,16 @@ void StartDefaultTask(void const * argument)
   /* USER CODE END StartDefaultTask */
 }
 
-/* USER CODE BEGIN Header_StartTelemetryTask */
+/* USER CODE BEGIN Header_StartControlLoop */
 /**
-* @brief Function implementing the telemetryTask thread.
+* @brief Function implementing the ControlLoopTask thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartTelemetryTask */
-void StartTelemetryTask(void const * argument)
+/* USER CODE END Header_StartControlLoop */
+void StartControlLoop(void const * argument)
 {
-  /* USER CODE BEGIN StartTelemetryTask */
-  /* Infinite loop */
-  for(;;)
-  {
-	  // Wait for notification from UART callback
-	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-	// Process the command received via UART
-	process_command(gCommandData);
-
-	// Introduce a delay if necessary
-	vTaskDelay(pdMS_TO_TICKS(100)); // Adjust delay as needed
-	// Re-enable UART reception
-	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
-
-	osDelay(1);
-  }
-  /* USER CODE END StartTelemetryTask */
-}
-
-/* USER CODE BEGIN Header_StartHeartbeatTask */
-/**
-* @brief Function implementing the heartbeatTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartHeartbeatTask */
-void StartHeartbeatTask(void const * argument)
-{
-  /* USER CODE BEGIN StartHeartbeatTask */
-  /* Infinite loop */
-  for(;;)
-  {
-	  // Perform actions based on telemetry data
-	if (telemetry_data.tRpm >= 7000) {
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
-	} else {
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
-	}
-	  osDelay(1);
-  }
-  /* USER CODE END StartHeartbeatTask */
-}
-
-/* USER CODE BEGIN Header_StartSPISend */
-/**
-* @brief Function implementing the SPISendDataTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartSPISend */
-void StartSPISend(void const * argument)
-{
-  /* USER CODE BEGIN StartSPISend */
-  /* Infinite loop */
-  for(;;)
-  {
-	  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK)
-	  	  {
-	  		HAL_StatusTypeDef status;
-	  		uint8_t buffer[sizeof(telemetry_packet)];
-	  		telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; // DEBUG DATA
-	  		memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
-
-	  		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
-
-	  		status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet)); // DEBUG DATA
-
-	  		//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet)); // REAL DATA
-
-	  		//uint8_t data = 0x0F;  // Test byte
-	  		//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
-
-	  		//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
-	  		//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
-
-	  		// Check for errors
-	  		if (status != HAL_OK) {
-	  			send_response("SPI Transmission Error");
-	  		}
-	  		// Wait for transmission to complete (optional but safer)
-	  	  }
-	  	 osDelay(50);
-  }
-  /* USER CODE END StartSPISend */
-}
-
-/* USER CODE BEGIN Header_StartFFBTask */
-/**
-* @brief Function implementing the FFBTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartFFBTask */
-void StartFFBTask(void const * argument)
-{
-  /* USER CODE BEGIN StartFFBTask */
+  /* USER CODE BEGIN StartControlLoop */
   /* Infinite loop */
   for(;;)
   {
@@ -434,43 +336,21 @@ void StartFFBTask(void const * argument)
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
+		  if (osSemaphoreWait(uartMutexHandle, osWaitForever) == osOK) {
+			  runUART();
+		  }
+
+		  if (osSemaphoreWait(spiSendMutexHandle, osWaitForever) == osOK) {
+			  runSPI();
+		  }
+
+		  runReport();
+
 		  // Run this task periodically (every 10ms):
 		  osDelay(10);
 	  }
   }
-  /* USER CODE END StartFFBTask */
-}
-
-/* USER CODE BEGIN Header_startHIDTask */
-/**
-* @brief Function implementing the sendHIDTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_startHIDTask */
-void startHIDTask(void const * argument)
-{
-  /* USER CODE BEGIN startHIDTask */
-  /* Infinite loop */
-  for(;;)
-  {
-
-//	  report.steering = getSteeringValue();       // Function to read steering value (-127 to +127)
-//	  report.accelerator = getAcceleratorValue(); // Function to read accelerator value (0 to 255)
-//	  report.brake = getBrakeValue();             // Function to read brake value (0 to 255)
-//	  report.buttons = getButtonStates();         // Function to read buttons as a 16-bit value
-
-	  HIDReport.steering = gSteering;        // Steering data (0-255)
-	  HIDReport.throttle = gAccel;        // Throttle data (0-255)
-	  HIDReport.brake = gBrake;           // Brake data (0-255)
-	  HIDReport.clutch = 0;         // Clutch data (0-255)
-	  HIDReport.buttons = 0;   // Each bit represents a button'
-	  HIDReport.rz = 0;
-	  HIDReport.slider = 0;
-	  USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
-
-  }
-  /* USER CODE END startHIDTask */
+  /* USER CODE END StartControlLoop */
 }
 
 /* Private application code --------------------------------------------------*/
@@ -526,6 +406,54 @@ void process_command(char* cmd) {
 		memset(gCommandData, 0, BUFFER_SIZE);
 }
 
+void runReport() {
+	HIDReport.steering = gSteering;        // Steering data (0-255)
+	HIDReport.throttle = gAccel;        // Throttle data (0-255)
+	HIDReport.brake = gBrake;           // Brake data (0-255)
+	HIDReport.clutch = 0;         // Clutch data (0-255)
+	HIDReport.buttons = 0;   // Each bit represents a button'
+	HIDReport.rz = 0;
+	HIDReport.slider = 0;
+	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
+}
+
+void runSPI() {
+	HAL_StatusTypeDef status;
+	uint8_t buffer[sizeof(telemetry_packet)];
+	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; // DEBUG DATA
+	memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
+
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
+
+	status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet)); // DEBUG DATA
+
+	//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet)); // REAL DATA
+
+	//uint8_t data = 0x0F;  // Test byte
+	//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
+
+	//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
+	//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
+
+	// Check for errors
+	if (status != HAL_OK) {
+		send_response("SPI Transmission Error");
+	}
+	// Wait for transmission to complete (optional but safer)
+}
+
+void runUART() {
+	// Wait for notification from UART callback
+	ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+	// Process the command received via UART
+	process_command(gCommandData);
+
+	// Introduce a delay if necessary
+	vTaskDelay(pdMS_TO_TICKS(100)); // Adjust delay as needed
+	// Re-enable UART reception
+	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+}
+
 float oscillate() {
     float period = 3.0;  // Oscillation period in seconds
     float elapsed_time = HAL_GetTick() / 1000.0;  // Convert milliseconds to seconds
@@ -575,35 +503,6 @@ float calculate_lock(float angle) {
     return 0;
 }
 
-//float scale_to_pwm(float total_force) {
-//    const float MIN_PWM = 50.0f;    // Minimum PWM value for the motor to start moving
-//    const float MAX_PWM = 255.0f;   // Maximum PWM value
-//    const float DEADBAND_THRESHOLD = 0.05f; // Adjust as needed
-//
-//    // Apply deadband
-//    if (fabs(total_force) < DEADBAND_THRESHOLD) {
-//        gPWM = 0.0f;
-//        return 0.0f;
-//    }
-//
-//    // Adjust total_force to account for deadband
-//    float adjusted_force = fabs(total_force) - DEADBAND_THRESHOLD;
-//
-//    // Normalize adjusted_force to range from 0 to 1
-//    float normalized_force = adjusted_force / (1.0f - DEADBAND_THRESHOLD);
-//
-//    // Calculate PWM output within the range MIN_PWM to MAX_PWM
-//    float pwm_output = normalized_force * (MAX_PWM - MIN_PWM) + MIN_PWM;
-//
-//    // Constrain PWM output to valid range
-//    pwm_output = constrain(pwm_output, MIN_PWM, MAX_PWM);
-//
-//    // Update debug variable
-//    gPWM = pwm_output;
-//
-//    return pwm_output;
-//}
-
 float scale_to_pwm(float total_force) {
     const float MIN_PWM = 50.0f;    // Minimum PWM value for the motor to start moving
     const float MAX_PWM = 255.0f;   // Maximum PWM value
@@ -624,6 +523,21 @@ float scale_to_pwm(float total_force) {
     gPWM = pwm_output;
 
     return pwm_output;
+}
+
+uint8_t map_wheel_position_to_axis(int32_t position) {
+    int32_t min_position = -450;
+    int32_t max_position = 450;
+
+    // Clamp the position to the valid range
+	if (position < min_position) {
+		position = min_position;
+	} else if (position > max_position) {
+		position = max_position;
+	}
+
+	// Reverse the mapping
+	return (uint8_t)((((max_position - position) * 255) + (max_position - min_position) / 2) / (max_position - min_position));
 }
 
 extern void init_encoder() {
@@ -678,6 +592,8 @@ void update_wheel_position_and_velocity(float *wheel_angle, float *angular_veloc
     // Store the current values for the next update
     last_encoder_count = current_angle;
     last_update_time = current_time;
+
+    gSteering = map_wheel_position_to_axis(*wheel_angle);
 }
 
 
@@ -713,10 +629,75 @@ extern void signalTelemetryTask() {
     // Pull CS line high to deselect the slave
     HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
     DWT_Delay_us(2);
-	osSignalSet(telemetryTaskHandle, 0x01);  // Set signal for telemetry task
+    osSemaphoreRelease(uartMutexHandle);
 }
 
 extern void restartUart(UART_HandleTypeDef *huart) {
 	HAL_UART_Receive_IT(huart, rx_buffer, sizeof(rx_buffer));
+}
+
+void motor_rotate_left() {
+    uint32_t target_position = gPosition - (MAX_REVOLUTIONS * ENCODER_RESOLUTION);
+    while (gPosition > target_position) {
+        // Set motor speed and direction
+        set_motor_direction(1);
+        set_motor_pwm(100);
+
+        // Read Hall Sensor
+        hall_voltage = read_hall_sensor();
+        if (hall_voltage > max_hall_voltage) {
+            max_hall_voltage = hall_voltage;
+            max_position = gPosition;
+        }
+    }
+
+    // Stop Motor
+    set_motor_pwm(0);
+}
+
+void motor_rotate_right() {
+    uint32_t target_position = gPosition + (MAX_REVOLUTIONS * ENCODER_RESOLUTION);
+    while (gPosition < target_position) {
+        // Set motor speed and direction
+    	set_motor_direction(0);
+		set_motor_pwm(100);
+
+        // Read Hall Sensor
+        hall_voltage = read_hall_sensor();
+        if (hall_voltage > max_hall_voltage) {
+            max_hall_voltage = hall_voltage;
+            max_position = gPosition;
+        }
+    }
+
+    // Stop Motor
+    set_motor_pwm(0);
+}
+
+float read_hall_sensor() {
+    uint32_t adc_value = 0;
+    HAL_ADC_Start(&hadc1);
+    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+        adc_value = HAL_ADC_GetValue(&hadc1);
+    }
+    HAL_ADC_Stop(&hadc1);
+    return (adc_value * ADC_MAX_VOLTAGE) / ADC_RESOLUTION;
+}
+
+void move_to_position(uint32_t target_position) {
+    while (gPosition != target_position) {
+        if (gPosition < target_position) {
+            // Rotate Right
+        	set_motor_direction(1);
+			set_motor_pwm(100);
+        } else {
+            // Rotate Left
+        	set_motor_direction(0);
+			set_motor_pwm(100);
+        }
+    }
+
+    // Stop Motor
+    set_motor_pwm(0);
 }
 /* USER CODE END Application */
