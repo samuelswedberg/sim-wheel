@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "hardware/pio.h"
+#include "mcp2515.h"
 
 // We are going to use SPI 0, and allocate it to the following GPIO pins
 #define SPI_PORT spi0
@@ -35,74 +36,44 @@ void blink_pin_forever(PIO pio, uint sm, uint offset, uint pin, uint freq) {
     // input (wait for n + 1; mov; jmp)
     pio->txf[sm] = (125000000 / (2 * freq)) - 3;
 }
-// Function to interpret the SPI data buffer into the telemetry_packet struct
-void interpret_data(uint8_t *buffer, telemetry_packet *telemetry_data) {
-    // Interpret each 4-byte segment in little-endian format
-    telemetry_data->tRpm = buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24);
-    telemetry_data->tGear = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
-    telemetry_data->tSpeedKmh = buffer[8] | (buffer[9] << 8) | (buffer[10] << 16) | (buffer[11] << 24);
-    telemetry_data->tHasDRS = buffer[12] | (buffer[13] << 8) | (buffer[14] << 16) | (buffer[15] << 24);
-    telemetry_data->tDrs = buffer[16] | (buffer[17] << 8) | (buffer[18] << 16) | (buffer[19] << 24);
-    telemetry_data->tPitLim = buffer[20] | (buffer[21] << 8) | (buffer[22] << 16) | (buffer[23] << 24);
-    telemetry_data->tFuel = buffer[24] | (buffer[25] << 8) | (buffer[26] << 16) | (buffer[27] << 24);
-    telemetry_data->tBrakeBias = buffer[28] | (buffer[29] << 8) | (buffer[30] << 16) | (buffer[31] << 24);
-    //telemetry_data->tForceFB = buffer[32] | (buffer[33] << 8) | (buffer[34] << 16) | (buffer[35] << 24);
+
+// MCP2515 object
+struct mcp2515_can mcp;
+
+// Initialize MCP2515
+void mcp2515_init() {
+    spi_init(spi0, 1000000);  // 1 MHz SPI clock
+    gpio_set_function(18, GPIO_FUNC_SPI);  // SCK
+    gpio_set_function(19, GPIO_FUNC_SPI);  // MOSI
+    gpio_set_function(16, GPIO_FUNC_SPI);  // MISO
+    gpio_set_function(5, GPIO_OUTPUT);    // CS
+    gpio_put(5, 1);  // Deselect by default
+
+    // Initialize MCP2515
+    if (mcp2515_init(&mcp, spi0, 5, MCP_8MHZ, CAN_500KBPS, MCP_MODE_NORMAL) != MCP2515_OK) {
+        printf("MCP2515 initialization failed\n");
+        while (1);
+    }
+    printf("MCP2515 initialized successfully\n");
 }
 
-void shift_bytes_to_end(uint8_t *buffer, size_t length) {
-    // Temporary storage for the first 8 bytes
-    uint8_t temp[8];
-    memcpy(temp, buffer, 8);
-    
-    // Shift the remaining bytes to the left by 8 positions
-    memmove(buffer, buffer + 8, length - 8);
-    
-    // Place the first 8 bytes at the end of the buffer
-    memcpy(buffer + length - 8, temp, 8);
-}
+void receive_can_message() {
+    uint8_t len;
+    uint8_t buf[8];
+    uint32_t id;
 
+    if (mcp2515_read_message(&mcp, &id, &len, buf) == MCP2515_OK) {
+        printf("Received CAN ID: 0x%03X, Length: %d\n", id, len);
 
-void setup_spi() {
-    spi_init(SPI_PORT, 1 * 656250);
-
-    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
-    gpio_set_function(PIN_CS,   GPIO_FUNC_SPI);
-    gpio_set_function(PIN_SCK,  GPIO_FUNC_SPI);
-    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
-
-    spi_set_slave(SPI_PORT, true);
-    spi_set_format(SPI_PORT, 
-                8,                // Data size (8 bits)
-                SPI_CPOL_1,       // Clock polarity low
-                SPI_CPHA_1,       // Clock phase first edge
-                SPI_MSB_FIRST);   // MSB first
-}
-
-void receive_spi_data(telemetry_packet *telemetry_data) {
-    if(spi_is_readable (SPI_PORT))
-    {
-        printf("Receiving data...\n");
-        uint8_t buffer[sizeof(telemetry_packet)];  // Buffer to store received data
-
-        memset(buffer, 0, sizeof(buffer));
-
-        // Wait for data from the master
-        spi_read_blocking(SPI_PORT, 0, buffer, sizeof(buffer));  // Read 36 bytes into buffer
-
-        // Align the buffer if necessary
-        shift_bytes_to_end(buffer, sizeof(buffer));
-
-        // Debug: Print each byte received
-        printf("Received data: ");
-        for (int i = 0; i < sizeof(telemetry_packet); i++) {
-            printf("0x%02X ", buffer[i]);
+        // Process the frame data
+        for (int i = 0; i < len; i++) {
+            printf("Data[%d]: 0x%02X\n", i, buf[i]);
         }
-        printf("\n");
-        
-        // Interpret the data into the telemetry_packet struct
-        interpret_data(buffer, telemetry_data);
+    } else {
+        printf("Failed to read CAN message\n");
     }
 }
+
 
 int main()
 {

@@ -5,7 +5,7 @@ import json
 
 asm = accSharedMemory()
 
-usart = serial.Serial('COM3', baudrate=115200, timeout=1)
+usart = serial.Serial('COM8', baudrate=115200, timeout=1)
 
 def send_json_data():
     """Function to send data to usart."""

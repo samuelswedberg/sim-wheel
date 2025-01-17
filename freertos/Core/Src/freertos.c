@@ -37,6 +37,7 @@
 #include <usart.h>
 #include <tim.h>
 #include <spi.h>
+#include <can.h>
 #include <adc.h>
 #include <usb_otg.h>
 #include <usbd_hid_custom_if.h>
@@ -342,7 +343,7 @@ void StartControlLoop(void const * argument)
 		  }
 
 		  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
-			  runSPI();
+			  runCAN();
 		  }
 
 		  runReport();
@@ -441,7 +442,43 @@ void runSPI() {
 	if (status != HAL_OK) {
 		send_response("SPI Transmission Error");
 	}
-	// Wait for transmission to complete (optional but safer)
+}
+
+void runCAN() {
+	CAN_TxHeaderTypeDef TxHeader;
+	uint32_t TxMailbox;
+
+	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 0};
+	uint8_t* rawData = (uint8_t*)&dataToSend;
+
+	// Initialize CAN Header
+	TxHeader.StdId = 0x100;  // Replace with your chosen CAN ID
+	TxHeader.ExtId = 0;
+	TxHeader.IDE = CAN_ID_STD;  // Standard ID
+	TxHeader.RTR = CAN_RTR_DATA;  // Data frame
+	TxHeader.DLC = 8;  // Data length (8 bytes for most frames)
+
+	uint8_t frameData[8];  // Temporary array to hold frame data
+
+	// Split the telemetry_packet into CAN frames
+	for (int i = 0; i < 36; i += 8) {
+	    int chunkSize = (36 - i) >= 8 ? 8 : (36 - i);  // Handle last partial frame
+
+	    // Copy the next chunk of data
+	    memcpy(frameData, &rawData[i], chunkSize);
+
+	    // Adjust DLC for the last frame
+	    TxHeader.DLC = chunkSize;
+
+	    // Send the frame
+	    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, frameData, &TxMailbox) != HAL_OK) {
+	        // Handle transmission error
+	        Error_Handler();
+	    }
+
+	    // Wait for the transmission to complete (optional, for safety)
+	    while (HAL_CAN_IsTxMessagePending(&hcan1, TxMailbox)) {}
+	}
 }
 
 void runUART() {
