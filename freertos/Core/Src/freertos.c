@@ -71,6 +71,15 @@ typedef struct __attribute__((packed)){
 
 HIDReport_t HIDReport;
 
+typedef struct __attribute__((__packed__)) {
+    uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
+    uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
+    uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)
+    int16_t encoder_1;      // First encoder value
+    int16_t encoder_2;      // Second encoder value
+    int16_t encoder_3;      // Third encoder value
+} user_input_data_t;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -489,13 +498,10 @@ void runCAN() {
 
 	        // Optionally log the state of CAN error counters
 	        uint32_t error = HAL_CAN_GetError(&hcan1);
-	        releaseSPI();
 	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
 	    }
-
 	    // Add a small delay if necessary (optional, for bus stability)
 	    HAL_Delay(1);
-
 
 	}
 
@@ -756,7 +762,22 @@ void move_to_position(uint32_t target_position) {
     set_motor_pwm(0);
 }
 
-void RxCAN() {
+void RxCAN(CAN_HandleTypeDef *hcan) {
+	CAN_RxHeaderTypeDef rxHeader;
+	uint8_t rxData[8];
 
+	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
+		if (rxHeader.StdId == 0x001) {
+			// Process message from Wheel Node
+			printf("Received from Wheel: %02X %02X %02X %02X\n",
+				   rxData[0], rxData[1], rxData[2], rxData[3]);
+		} else if (rxHeader.StdId == 0x002) {
+			// Process message from Pedal Node
+			printf("Received from Pedals: %02X %02X %02X %02X\n",
+				   rxData[0], rxData[1], rxData[2], rxData[3]);
+		}
+	} else {
+		printf("Failed to receive CAN message\n");
+	}
 }
 /* USER CODE END Application */

@@ -56,7 +56,7 @@ void MX_CAN1_Init(void)
   /* USER CODE BEGIN CAN1_Init 2 */
   CAN_FilterTypeDef filterConfig;
 
-  filterConfig.FilterBank = 0;              // Use Filter Bank 0
+  filterConfig.FilterBank = 0;
   filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
   filterConfig.FilterIdHigh = 0x0000;       // Accept all IDs

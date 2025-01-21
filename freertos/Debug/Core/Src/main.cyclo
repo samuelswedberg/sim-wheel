@@ -5,6 +5,6 @@
 ../Core/Src/main.c:218:6:HAL_SPI_TxCpltCallback	1
 ../Core/Src/main.c:222:6:HAL_UART_RxCpltCallback	2
 ../Core/Src/main.c:229:6:HAL_UART_ErrorCallback	6
-../Core/Src/main.c:265:6:HAL_CAN_RxFifo0MsgPendingCallback	2
+../Core/Src/main.c:265:6:HAL_CAN_RxFifo1MsgPendingCallback	2
 ../Core/Src/main.c:283:6:HAL_TIM_PeriodElapsedCallback	2
 ../Core/Src/main.c:300:6:Error_Handler	1

@@ -60,8 +60,8 @@ all: main-build
 main-build: stm-pedal.elf secondary-outputs
 
 # Tool invocations
-stm-pedal.elf stm-pedal.map: $(OBJS) $(USER_OBJS) A:\GitHub\uC\stm-pedal\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "stm-pedal.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"A:\GitHub\uC\stm-pedal\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm-pedal.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+stm-pedal.elf stm-pedal.map: $(OBJS) $(USER_OBJS) A:\GitHub\sim-wheel\stm-pedal\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "stm-pedal.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"A:\GitHub\sim-wheel\stm-pedal\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="stm-pedal.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
