@@ -36,7 +36,6 @@
 #include <time.h>
 #include <usart.h>
 #include <tim.h>
-#include <spi.h>
 #include <can.h>
 #include <adc.h>
 #include <usb_otg.h>
@@ -160,6 +159,8 @@ void motor_rotate_left();
 void motor_rotate_right();
 float read_hall_sensor();
 void move_to_position(uint32_t target_position);
+void RxCAN();
+void pollCANMessages();
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -353,6 +354,7 @@ void StartControlLoop(void const * argument)
 
 		  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
 			  runCAN();
+			  pollCANMessages();
 		  }
 
 		  runReport();
@@ -427,30 +429,6 @@ void runReport() {
 	HIDReport.rz = 0;
 	HIDReport.slider = 0;
 //	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
-}
-
-void runSPI() {
-	HAL_StatusTypeDef status;
-	uint8_t buffer[sizeof(telemetry_packet)];
-	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; // DEBUG DATA
-	memcpy(&buffer, (uint8_t*)&telemetry_data, sizeof(telemetry_packet));
-
-	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_RESET); // Set NSS low
-
-	status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&dataToSend, sizeof(telemetry_packet)); // DEBUG DATA
-
-	//status = HAL_SPI_Transmit_DMA(&hspi2, (uint8_t*)&buffer, sizeof(telemetry_packet)); // REAL DATA
-
-	//uint8_t data = 0x0F;  // Test byte
-	//status = HAL_SPI_Transmit_DMA(&hspi2, &data, 1);
-
-	//uint8_t testData[4] = {0xAA, 0xBB, 0xCC, 0xDD}; // tRpm = 3600 in little-endian
-	//HAL_SPI_Transmit_DMA(&hspi2, &testData, sizeof(testData));
-
-	// Check for errors
-	if (status != HAL_OK) {
-		send_response("SPI Transmission Error");
-	}
 }
 
 void runCAN() {
@@ -762,22 +740,39 @@ void move_to_position(uint32_t target_position) {
     set_motor_pwm(0);
 }
 
-void RxCAN(CAN_HandleTypeDef *hcan) {
-	CAN_RxHeaderTypeDef rxHeader;
-	uint8_t rxData[8];
+//void RxCAN(CAN_HandleTypeDef *hcan) {
+//	CAN_RxHeaderTypeDef rxHeader;
+//	uint8_t rxData[8];
+//
+//	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
+//		if (rxHeader.StdId == 0x001) {
+//			// Process message from Wheel Node
+//			printf("Received from Wheel: %02X %02X %02X %02X\n",
+//				   rxData[0], rxData[1], rxData[2], rxData[3]);
+//		} else if (rxHeader.StdId == 0x002) {
+//			// Process message from Pedal Node
+//			printf("Received from Pedals: %02X %02X %02X %02X\n",
+//				   rxData[0], rxData[1], rxData[2], rxData[3]);
+//		}
+//	} else {
+//		printf("Failed to receive CAN message\n");
+//	}
+//}
 
-	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
-		if (rxHeader.StdId == 0x001) {
-			// Process message from Wheel Node
-			printf("Received from Wheel: %02X %02X %02X %02X\n",
-				   rxData[0], rxData[1], rxData[2], rxData[3]);
-		} else if (rxHeader.StdId == 0x002) {
-			// Process message from Pedal Node
-			printf("Received from Pedals: %02X %02X %02X %02X\n",
-				   rxData[0], rxData[1], rxData[2], rxData[3]);
-		}
-	} else {
-		printf("Failed to receive CAN message\n");
-	}
+void pollCANMessages() {
+    CAN_RxHeaderTypeDef rxHeader;
+    uint8_t rxData[8];  // Buffer to store the received data
+
+    // Optional: Check FIFO1 if used
+    if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
+        if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
+            // Process the received message
+            printf("Message Received from ID: 0x%03X, Data: %02X %02X %02X %02X\n",
+                   rxHeader.StdId, rxData[0], rxData[1], rxData[2], rxData[3]);
+        } else {
+            printf("Failed to retrieve CAN message\n");
+        }
+    }
 }
+
 /* USER CODE END Application */

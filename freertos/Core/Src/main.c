@@ -21,8 +21,6 @@
 #include "cmsis_os.h"
 #include "adc.h"
 #include "can.h"
-#include "dma.h"
-#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "usb_otg.h"
@@ -120,8 +118,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
-  MX_SPI2_Init();
   MX_USART2_UART_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
@@ -215,9 +211,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-//    releaseSPI();
-}
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART2) {
@@ -264,10 +257,10 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-	if(hcan->Instance == CAN1)
-	{
-		RxCAN(hcan);
-	}
+//	if(hcan->Instance == CAN1)
+//	{
+//		RxCAN(hcan);
+//	}
 }
 
 /* USER CODE END 4 */
