@@ -137,6 +137,9 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
   MX_USB_DEVICE_Init();
+
+  HAL_CAN_Start(&hcan1);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -213,7 +216,7 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi) {
-    releaseSPI();
+//    releaseSPI();
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
@@ -257,6 +260,14 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
         // Recovery: Restart UART reception after clearing the error flags
         restartUart(huart);
     }
+}
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	if(hcan->Instance == CAN1)
+	{
+		RxCAN();
+	}
 }
 
 /* USER CODE END 4 */

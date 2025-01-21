@@ -131,7 +131,7 @@ osSemaphoreId uartMutexHandle;
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 void runUART();
-void runSPI();
+void runCAN();
 void runReport();
 float constrain(float x, float lower, float upper);
 float calculate_inertia(float force_feedback, float angular_velocity);
@@ -417,7 +417,7 @@ void runReport() {
 	HIDReport.buttons = 0;   // Each bit represents a button'
 	HIDReport.rz = 0;
 	HIDReport.slider = 0;
-	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
+//	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
 }
 
 void runSPI() {
@@ -448,37 +448,58 @@ void runCAN() {
 	CAN_TxHeaderTypeDef TxHeader;
 	uint32_t TxMailbox;
 
-	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0, 0};
+	// Create a telemetry_packet instance and initialize its fields
+//	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; DEBUG CODE
+	telemetry_packet dataToSend = {3600, 1, gSteering, 0, 0, 0, 45, 0};
 	uint8_t* rawData = (uint8_t*)&dataToSend;
 
 	// Initialize CAN Header
-	TxHeader.StdId = 0x100;  // Replace with your chosen CAN ID
+	TxHeader.StdId = 0x100;           // CAN ID for the message
 	TxHeader.ExtId = 0;
-	TxHeader.IDE = CAN_ID_STD;  // Standard ID
-	TxHeader.RTR = CAN_RTR_DATA;  // Data frame
-	TxHeader.DLC = 8;  // Data length (8 bytes for most frames)
+	TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
+	TxHeader.RTR = CAN_RTR_DATA;      // Data frame
+	TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
 
-	uint8_t frameData[8];  // Temporary array to hold frame data
+	uint8_t frameData[8];             // Temporary buffer for each CAN frame
+
+	// Calculate the size of the telemetry_packet struct
+	int totalSize = sizeof(telemetry_packet);
 
 	// Split the telemetry_packet into CAN frames
-	for (int i = 0; i < 36; i += 8) {
-	    int chunkSize = (36 - i) >= 8 ? 8 : (36 - i);  // Handle last partial frame
+	for (int i = 0; i < totalSize; i += 8) {
+	    // Calculate the size of the current chunk (for the last frame)
+	    int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
 
-	    // Copy the next chunk of data
+	    // Copy the next chunk of data into the frame buffer
 	    memcpy(frameData, &rawData[i], chunkSize);
 
 	    // Adjust DLC for the last frame
 	    TxHeader.DLC = chunkSize;
 
-	    // Send the frame
-	    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, frameData, &TxMailbox) != HAL_OK) {
-	        // Handle transmission error
-	        Error_Handler();
+	    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, frameData, &TxMailbox);
+	    if (status != HAL_OK) {
+	        // Inspect the error
+	        if (status == HAL_ERROR) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+	        } else if (status == HAL_BUSY) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+	        } else if (status == HAL_TIMEOUT) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+	        }
+
+	        // Optionally log the state of CAN error counters
+	        uint32_t error = HAL_CAN_GetError(&hcan1);
+	        releaseSPI();
+	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
 	    }
 
-	    // Wait for the transmission to complete (optional, for safety)
-	    while (HAL_CAN_IsTxMessagePending(&hcan1, TxMailbox)) {}
+	    // Add a small delay if necessary (optional, for bus stability)
+	    HAL_Delay(1);
+
+
 	}
+
+	releaseSPI();
 }
 
 void runUART() {
@@ -733,5 +754,9 @@ void move_to_position(uint32_t target_position) {
 
     // Stop Motor
     set_motor_pwm(0);
+}
+
+void RxCAN() {
+
 }
 /* USER CODE END Application */
