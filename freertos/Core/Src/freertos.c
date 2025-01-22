@@ -130,6 +130,8 @@ uint32_t max_position = 0;
 user_input_data_t gUserInputData;
 pedal_data_t gPedalData;
 
+int gDebugCounter = 0;
+
 /*
  * Default strength is 0.5 (results in bell curve feedback)
  * Over drive would be greater than 0.5
@@ -789,7 +791,7 @@ void processCAN() {
 					// Copy buffer into the telemetry_packet struct
 					memcpy(&gUserInputData, buffer, sizeof(user_input_data_t));
 					offset = 0; // Reset offset for the next packet
-
+					gDebugCounter++;
 					// Process the received telemetry data
 //					ProcessTelemetryData(&gReceivedTelemetry);
 				}
