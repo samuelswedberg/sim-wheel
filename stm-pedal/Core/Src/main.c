@@ -29,13 +29,10 @@
 /* USER CODE BEGIN PTD */
 
 typedef struct __attribute__((__packed__)) {
-    uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
-    uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
-    uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)
     int16_t encoder_1;      // First encoder value
     int16_t encoder_2;      // Second encoder value
     int16_t encoder_3;      // Third encoder value
-} user_input_data_t;
+} pedal_data_t;
 
 /* USER CODE END PTD */
 
@@ -112,7 +109,7 @@ int main(void)
   while (1)
   {
 	 CAN_Transmit();
-	 HAL_Delay(50);
+//	 HAL_Delay(50);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -242,35 +239,90 @@ static void MX_GPIO_Init(void)
 /*
  * CAN BUS FUNCTIONS
  */
+//void CAN_Transmit() {
+//	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+//
+//    CAN_TxHeaderTypeDef txHeader;
+//    uint32_t txMailbox;
+//    uint8_t data[8] = {10, 20, 30, 40, 50, 60, 70, 80}; // Example data
+//
+//	txHeader.StdId = 0x002;
+//	txHeader.ExtId = 0;
+//	txHeader.IDE = CAN_ID_STD;
+//	txHeader.RTR = CAN_RTR_DATA;
+//	txHeader.DLC = 8;
+//
+//    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &txHeader, data, &txMailbox);
+//	if (status != HAL_OK) {
+//		// Inspect the error
+//		if (status == HAL_ERROR) {
+//			printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+//		} else if (status == HAL_BUSY) {
+//			printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+//		} else if (status == HAL_TIMEOUT) {
+//			printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+//		}
+//
+//		// Optionally log the state of CAN error counters
+//		uint32_t error = HAL_CAN_GetError(&hcan);
+//		printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+//	}
+//
+//	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+//}
+
 void CAN_Transmit() {
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+	CAN_TxHeaderTypeDef TxHeader;
+	uint32_t TxMailbox;
 
-    CAN_TxHeaderTypeDef txHeader;
-    uint32_t txMailbox;
-    uint8_t data[8] = {10, 20, 30, 40, 50, 60, 70, 80}; // Example data
+	// Create a telemetry_packet instance and initialize its fields
+//	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; DEBUG CODE
+	pedal_data_t dataToSend = {10, 20, 30};
+	uint8_t* rawData = (uint8_t*)&dataToSend;
 
-	txHeader.StdId = 0x002;
-	txHeader.ExtId = 0;
-	txHeader.IDE = CAN_ID_STD;
-	txHeader.RTR = CAN_RTR_DATA;
-	txHeader.DLC = 8;
+	// Initialize CAN Header
+	TxHeader.StdId = 0x102;           // CAN ID for the message
+	TxHeader.ExtId = 0;
+	TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
+	TxHeader.RTR = CAN_RTR_DATA;      // Data frame
+	TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
 
-    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &txHeader, data, &txMailbox);
-	if (status != HAL_OK) {
-		// Inspect the error
-		if (status == HAL_ERROR) {
-			printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-		} else if (status == HAL_BUSY) {
-			printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-		} else if (status == HAL_TIMEOUT) {
-			printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-		}
+	uint8_t frameData[8];             // Temporary buffer for each CAN frame
 
-		// Optionally log the state of CAN error counters
-		uint32_t error = HAL_CAN_GetError(&hcan);
-		printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+	// Calculate the size of the telemetry_packet struct
+	int totalSize = sizeof(pedal_data_t);
+
+	// Split the telemetry_packet into CAN frames
+	for (int i = 0; i < totalSize; i += 8) {
+	    // Calculate the size of the current chunk (for the last frame)
+	    int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
+
+	    // Copy the next chunk of data into the frame buffer
+	    memcpy(frameData, &rawData[i], chunkSize);
+
+	    // Adjust DLC for the last frame
+	    TxHeader.DLC = chunkSize;
+
+	    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
+	    if (status != HAL_OK) {
+	        // Inspect the error
+	        if (status == HAL_ERROR) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+	        } else if (status == HAL_BUSY) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+	        } else if (status == HAL_TIMEOUT) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+	        }
+
+	        // Optionally log the state of CAN error counters
+	        uint32_t error = HAL_CAN_GetError(&hcan);
+	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+	    }
+	    // Add a small delay if necessary (optional, for bus stability)
+	    HAL_Delay(1);
+
 	}
-
 	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
 }
 

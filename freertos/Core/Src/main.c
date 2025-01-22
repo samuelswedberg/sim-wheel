@@ -135,7 +135,7 @@ int main(void)
   MX_USB_DEVICE_Init();
 
   HAL_CAN_Start(&hcan1);
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO1_MSG_PENDING);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -257,12 +257,19 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
 
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-//	if(hcan->Instance == CAN1)
-//	{
-//		RxCAN(hcan);
-//	}
+	if(hcan->Instance == CAN1)
+	{
+		processCAN();
+	}
 }
 
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+	if(hcan->Instance == CAN1)
+	{
+		processCAN();
+	}
+}
 /* USER CODE END 4 */
 
 /**

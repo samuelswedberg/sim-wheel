@@ -38,6 +38,15 @@ typedef struct __attribute__((packed)){
 	int32_t  tBrakeBias;
 } telemetry_packet;
 
+typedef struct __attribute__((__packed__)) {
+    uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
+    uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
+    uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)
+    int16_t encoder_1;      // First encoder value
+    int16_t encoder_2;      // Second encoder value
+    int16_t encoder_3;      // Third encoder value
+} user_input_data_t;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -220,10 +229,8 @@ static void MX_CAN_Init(void)
   filterConfig.FilterBank = 0;
   filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  filterConfig.FilterIdHigh = 0x0000;       // Accept all IDs
-  filterConfig.FilterIdLow = 0x0000;
-  filterConfig.FilterMaskIdHigh = 0x0000;   // Accept all IDs
-  filterConfig.FilterMaskIdLow = 0x0000;
+  filterConfig.FilterIdHigh = 0x100 << 5;       // Accept all IDs
+  filterConfig.FilterMaskIdHigh = 0x7FF << 5;;   // Accept all IDs
   filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;  // Assign to FIFO 1
   filterConfig.FilterActivation = ENABLE;
 
@@ -331,36 +338,91 @@ int oscillate_value() {
 /*
  * CAN BUS FUNCTIONS
  */
+//void CAN_Transmit() {
+//	CAN_TxHeaderTypeDef txHeader;
+//	uint32_t txMailbox;
+//	uint8_t data[8] = {100, 101, 102, 103, 104, 105, 106, 107};
+//
+//	txHeader.StdId = 0x001;
+//	txHeader.ExtId = 0;
+//	txHeader.IDE = CAN_ID_STD;
+//	txHeader.RTR = CAN_RTR_DATA;
+//	txHeader.DLC = 8;
+//
+//	HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &txHeader, data, &txMailbox);
+//	if (status != HAL_OK) {
+//		if (status == HAL_ERROR) {
+//			printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+//		} else if (status == HAL_BUSY) {
+//			printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+//		} else if (status == HAL_TIMEOUT) {
+//			printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+//		}
+//
+//		uint32_t error = HAL_CAN_GetError(&hcan);
+//		printf("CAN Error Code: 0x%08lx\n", error);
+//	}
+//}
+
 void CAN_Transmit() {
-	CAN_TxHeaderTypeDef txHeader;
-	uint32_t txMailbox;
-	uint8_t data[8] = {100, 101, 102, 103, 104, 105, 106, 107};
+	CAN_TxHeaderTypeDef TxHeader;
+	uint32_t TxMailbox;
 
-	txHeader.StdId = 0x001;
-	txHeader.ExtId = 0;
-	txHeader.IDE = CAN_ID_STD;
-	txHeader.RTR = CAN_RTR_DATA;
-	txHeader.DLC = 8;
+	// Create a telemetry_packet instance and initialize its fields
+	user_input_data_t dataToSend;
+	dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
+	dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
+	dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
+	dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
+	dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
+	dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
 
-	HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &txHeader, data, &txMailbox);
-	if (status != HAL_OK) {
-		if (status == HAL_ERROR) {
-			printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-		} else if (status == HAL_BUSY) {
-			printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-		} else if (status == HAL_TIMEOUT) {
-			printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-		}
+	uint8_t* rawData = (uint8_t*)&dataToSend;
 
-		uint32_t error = HAL_CAN_GetError(&hcan);
-		printf("CAN Error Code: 0x%08lx\n", error);
+	// Initialize CAN Header
+	TxHeader.StdId = 0x101;           // CAN ID for the message
+	TxHeader.ExtId = 0;
+	TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
+	TxHeader.RTR = CAN_RTR_DATA;      // Data frame
+	TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
+
+	uint8_t frameData[8];             // Temporary buffer for each CAN frame
+
+	// Calculate the size of the telemetry_packet struct
+	int totalSize = sizeof(user_input_data_t);
+
+	// Split the telemetry_packet into CAN frames
+	for (int i = 0; i < totalSize; i += 8) {
+	    // Calculate the size of the current chunk (for the last frame)
+	    int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
+
+	    // Copy the next chunk of data into the frame buffer
+	    memcpy(frameData, &rawData[i], chunkSize);
+
+	    // Adjust DLC for the last frame
+	    TxHeader.DLC = chunkSize;
+
+	    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
+	    if (status != HAL_OK) {
+	        // Inspect the error
+	        if (status == HAL_ERROR) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+	        } else if (status == HAL_BUSY) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+	        } else if (status == HAL_TIMEOUT) {
+	            printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+	        }
+
+	        // Optionally log the state of CAN error counters
+	        uint32_t error = HAL_CAN_GetError(&hcan);
+	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+	    }
+	    HAL_Delay(1);
 	}
 }
 
 // CAN receive interrupt callback
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
     CAN_RxHeaderTypeDef rxHeader;
     uint8_t rxData[8]; // Max CAN frame size is 8 bytes
 
@@ -387,8 +449,6 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			}
 		}
     }
-
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
 }
 
 void ProcessTelemetryData(const telemetry_packet *data) {

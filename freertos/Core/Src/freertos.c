@@ -79,6 +79,12 @@ typedef struct __attribute__((__packed__)) {
     int16_t encoder_3;      // Third encoder value
 } user_input_data_t;
 
+typedef struct __attribute__((__packed__)) {
+    int16_t encoder_1;      // First encoder value
+    int16_t encoder_2;      // Second encoder value
+    int16_t encoder_3;      // Third encoder value
+} pedal_data_t;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -121,6 +127,9 @@ float max_hall_voltage = 0;
 float gHall = 0;
 uint32_t max_position = 0;
 
+user_input_data_t gUserInputData;
+pedal_data_t gPedalData;
+
 /*
  * Default strength is 0.5 (results in bell curve feedback)
  * Over drive would be greater than 0.5
@@ -160,7 +169,7 @@ void motor_rotate_right();
 float read_hall_sensor();
 void move_to_position(uint32_t target_position);
 void RxCAN();
-void pollCANMessages();
+void processCAN();
 /* USER CODE END FunctionPrototypes */
 
 void StartDefaultTask(void const * argument);
@@ -354,7 +363,6 @@ void StartControlLoop(void const * argument)
 
 		  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
 			  runCAN();
-			  pollCANMessages();
 		  }
 
 		  runReport();
@@ -478,9 +486,7 @@ void runCAN() {
 	        uint32_t error = HAL_CAN_GetError(&hcan1);
 	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
 	    }
-	    // Add a small delay if necessary (optional, for bus stability)
 	    HAL_Delay(1);
-
 	}
 
 	releaseSPI();
@@ -759,7 +765,7 @@ void move_to_position(uint32_t target_position) {
 //	}
 //}
 
-void pollCANMessages() {
+void processCAN() {
     CAN_RxHeaderTypeDef rxHeader;
     uint8_t rxData[8];  // Buffer to store the received data
 
@@ -769,6 +775,45 @@ void pollCANMessages() {
             // Process the received message
             printf("Message Received from ID: 0x%03X, Data: %02X %02X %02X %02X\n",
                    rxHeader.StdId, rxData[0], rxData[1], rxData[2], rxData[3]);
+            if (rxHeader.StdId == 0x101) {
+				static uint8_t buffer[sizeof(user_input_data_t)];
+				static uint8_t offset = 0;
+
+				// Copy received data into buffer
+				uint8_t bytesToCopy = (rxHeader.DLC < sizeof(user_input_data_t) - offset) ? rxHeader.DLC : sizeof(user_input_data_t) - offset;
+				memcpy(&buffer[offset], rxData, bytesToCopy);
+				offset += bytesToCopy;
+
+				// Check if the entire packet has been received
+				if (offset >= sizeof(user_input_data_t)) {
+					// Copy buffer into the telemetry_packet struct
+					memcpy(&gUserInputData, buffer, sizeof(user_input_data_t));
+					offset = 0; // Reset offset for the next packet
+
+					// Process the received telemetry data
+//					ProcessTelemetryData(&gReceivedTelemetry);
+				}
+			}
+            if (rxHeader.StdId == 0x102) {
+				static uint8_t buffer[sizeof(pedal_data_t)];
+				static uint8_t offset = 0;
+
+				// Copy received data into buffer
+				uint8_t bytesToCopy = (rxHeader.DLC < sizeof(pedal_data_t) - offset) ? rxHeader.DLC : sizeof(pedal_data_t) - offset;
+				memcpy(&buffer[offset], rxData, bytesToCopy);
+				offset += bytesToCopy;
+
+				// Check if the entire packet has been received
+				if (offset >= sizeof(pedal_data_t)) {
+					// Copy buffer into the telemetry_packet struct
+					memcpy(&gPedalData, buffer, sizeof(pedal_data_t));
+					offset = 0; // Reset offset for the next packet
+
+					// Process the received telemetry data
+//					ProcessTelemetryData(&gReceivedTelemetry);
+				}
+			}
+
         } else {
             printf("Failed to retrieve CAN message\n");
         }
