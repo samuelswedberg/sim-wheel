@@ -42,7 +42,7 @@ extern "C" {
   * @{
   */
 
-#define CUSTOM_HID_STR_DESC                          "STM32 SIM WHEEL"
+#define CUSTOM_HID_STR_DESC                          "STM32 HID CUSTOM"
 
 #define CUSTOM_HID_EPIN_SIZE                         0x02U
 #define CUSTOM_HID_EPOUT_SIZE                        0x02U

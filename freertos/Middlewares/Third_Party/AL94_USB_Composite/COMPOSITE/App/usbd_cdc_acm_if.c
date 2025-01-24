@@ -90,8 +90,8 @@
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 
-#define APP_RX_DATA_SIZE 128
-#define APP_TX_DATA_SIZE 128
+#define APP_RX_DATA_SIZE 256
+#define APP_TX_DATA_SIZE 256
 
 /** RX buffer for USB */
 uint8_t RX_Buffer[NUMBER_OF_CDC][APP_RX_DATA_SIZE];
@@ -422,6 +422,7 @@ static int8_t CDC_Receive(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len)
 {
   /* USER CODE BEGIN 6 */
   //HAL_UART_Transmit_DMA(CDC_CH_To_UART_Handle(cdc_ch), Buf, *Len);
+  signalTelemetryTask(Buf, *Len);
   CDC_Transmit(cdc_ch, Buf, *Len); // echo back on same channel
 
   USBD_CDC_SetRxBuffer(cdc_ch, &hUsbDevice, &Buf[0]);
