@@ -144,6 +144,7 @@ static float last_update_time = 0;
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
 osThreadId ControlLoopTaskHandle;
+osThreadId CommLoopTaskHandle;
 osSemaphoreId spiSendMutexHandle;
 osSemaphoreId uartMutexHandle;
 
@@ -175,6 +176,7 @@ void processCAN();
 
 void StartDefaultTask(void const * argument);
 void StartControlLoop(void const * argument);
+void StartCommLoopTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -252,8 +254,12 @@ void MX_FREERTOS_Init(void) {
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of ControlLoopTask */
-  osThreadDef(ControlLoopTask, StartControlLoop, osPriorityHigh, 0, 128);
+  osThreadDef(ControlLoopTask, StartControlLoop, osPriorityHigh, 0, 512);
   ControlLoopTaskHandle = osThreadCreate(osThread(ControlLoopTask), NULL);
+
+  /* definition and creation of CommLoopTask */
+  osThreadDef(CommLoopTask, StartCommLoopTask, osPriorityNormal, 0, 512);
+  CommLoopTaskHandle = osThreadCreate(osThread(CommLoopTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -358,22 +364,41 @@ void StartControlLoop(void const * argument)
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
-		  if (osSemaphoreWait(uartMutexHandle, 10) == osOK) {
-			  runUART();
-		  }
 
-		  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
-			  runCAN();
-		  }
-
-		  runReport();
 
 		  gHall = read_hall_sensor();
 		  // Run this task periodically (every 10ms):
-		  osDelay(10);
+		  osDelay(5);
 	  }
   }
   /* USER CODE END StartControlLoop */
+}
+
+/* USER CODE BEGIN Header_StartCommLoopTask */
+/**
+* @brief Function implementing the CommLoopTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCommLoopTask */
+void StartCommLoopTask(void const * argument)
+{
+  /* USER CODE BEGIN StartCommLoopTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  if (osSemaphoreWait(uartMutexHandle, 10) == osOK) {
+		  runUART();
+	  }
+
+	  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
+		  runCAN();
+	  }
+
+	  runReport();
+    osDelay(10);
+  }
+  /* USER CODE END StartCommLoopTask */
 }
 
 /* Private application code --------------------------------------------------*/
