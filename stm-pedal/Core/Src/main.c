@@ -50,7 +50,7 @@ typedef struct __attribute__((__packed__)) {
 CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
-
+uint32_t lastSendTime = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,7 +99,6 @@ int main(void)
   MX_CAN_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_Start(&hcan);
-  HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
 
   /* USER CODE END 2 */
 
@@ -108,7 +107,9 @@ int main(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
   while (1)
   {
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 	 CAN_Transmit();
+	 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
 //	 HAL_Delay(50);
     /* USER CODE END WHILE */
 
@@ -189,15 +190,15 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 2 */
   CAN_FilterTypeDef filterConfig;
 
-  filterConfig.FilterBank = 0;
-  filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  filterConfig.FilterIdHigh = 0x002 << 5;
-  filterConfig.FilterIdLow = 0x0000;
-  filterConfig.FilterMaskIdHigh = 0x7FF << 5;
-  filterConfig.FilterMaskIdLow = 0x0000;
-  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;
-  filterConfig.FilterActivation = ENABLE;
+  filterConfig.FilterBank = 0;                  // Use filter bank 0 (adjust if needed)
+  filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;  // Mask mode
+  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT; // 32-bit scale
+  filterConfig.FilterIdHigh = 0xFFFF;           // Invalid ID
+  filterConfig.FilterIdLow = 0xFFFF;            // Invalid ID
+  filterConfig.FilterMaskIdHigh = 0xFFFF;       // Mask blocks all
+  filterConfig.FilterMaskIdLow = 0xFFFF;        // Mask blocks all
+  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1; // Assign to FIFO0 (or FIFO1 if used)
+  filterConfig.FilterActivation = ENABLE;       // Activate the filter
 
   HAL_CAN_ConfigFilter(&hcan, &filterConfig);
 
@@ -272,58 +273,62 @@ static void MX_GPIO_Init(void)
 //}
 
 void CAN_Transmit() {
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-	CAN_TxHeaderTypeDef TxHeader;
-	uint32_t TxMailbox;
+	uint32_t currentTime = HAL_GetTick();
 
-	// Create a telemetry_packet instance and initialize its fields
-//	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; DEBUG CODE
-	pedal_data_t dataToSend = {10, 20, 30};
-	uint8_t* rawData = (uint8_t*)&dataToSend;
+	if(currentTime - lastSendTime >= 20) {
+		CAN_TxHeaderTypeDef TxHeader;
+		uint32_t TxMailbox;
 
-	// Initialize CAN Header
-	TxHeader.StdId = 0x102;           // CAN ID for the message
-	TxHeader.ExtId = 0;
-	TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-	TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-	TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
+		// Create a telemetry_packet instance and initialize its fields
+		pedal_data_t dataToSend;
+		dataToSend.encoder_1 = 1234;         // Example: Encoder 1 value
+		dataToSend.encoder_2 = -2234;        // Example: Encoder 2 value
+		dataToSend.encoder_3 = 5234;         // Example: Encoder 3 value
 
-	uint8_t frameData[8];             // Temporary buffer for each CAN frame
+		uint8_t* rawData = (uint8_t*)&dataToSend;
 
-	// Calculate the size of the telemetry_packet struct
-	int totalSize = sizeof(pedal_data_t);
+		// Initialize CAN Header
+		TxHeader.StdId = 0x102;           // CAN ID for the message
+		TxHeader.ExtId = 0;
+		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
+		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
+		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
 
-	// Split the telemetry_packet into CAN frames
-	for (int i = 0; i < totalSize; i += 8) {
-	    // Calculate the size of the current chunk (for the last frame)
-	    int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
+		uint8_t frameData[8];             // Temporary buffer for each CAN frame
 
-	    // Copy the next chunk of data into the frame buffer
-	    memcpy(frameData, &rawData[i], chunkSize);
+		// Calculate the size of the telemetry_packet struct
+		int totalSize = sizeof(pedal_data_t);
 
-	    // Adjust DLC for the last frame
-	    TxHeader.DLC = chunkSize;
+		// Split the telemetry_packet into CAN frames
+		for (int i = 0; i < totalSize; i += 8) {
+			// Calculate the size of the current chunk (for the last frame)
+			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
 
-	    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
-	    if (status != HAL_OK) {
-	        // Inspect the error
-	        if (status == HAL_ERROR) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-	        } else if (status == HAL_BUSY) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-	        } else if (status == HAL_TIMEOUT) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-	        }
+			// Copy the next chunk of data into the frame buffer
+			memcpy(frameData, &rawData[i], chunkSize);
 
-	        // Optionally log the state of CAN error counters
-	        uint32_t error = HAL_CAN_GetError(&hcan);
-	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
-	    }
-	    // Add a small delay if necessary (optional, for bus stability)
-	    HAL_Delay(1);
+			// Adjust DLC for the last frame
+			TxHeader.DLC = chunkSize;
 
+			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
+			if (status != HAL_OK) {
+				// Inspect the error
+				if (status == HAL_ERROR) {
+					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+				} else if (status == HAL_BUSY) {
+					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+				} else if (status == HAL_TIMEOUT) {
+					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+				}
+
+				// Optionally log the state of CAN error counters
+				uint32_t error = HAL_CAN_GetError(&hcan);
+				printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+			}
+			lastSendTime = currentTime;  // Update last transmission time
+			HAL_Delay(1);
+		}
 	}
-	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
 }
 
 /* USER CODE END 4 */

@@ -74,6 +74,8 @@ int direction = 1; // 1 for increasing, -1 for decreasing
 int step = 1;      // Increment/Decrement step
 int delay_ms = 25; // Delay between updates
 
+uint32_t lastSendTime = 0;
+
 int gSteering = 0;
 /* USER CODE END PV */
 
@@ -135,7 +137,7 @@ int main(void)
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
   while (1)
   {
-
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 	  int oscillated_value = oscillate_value();
 
 	  char command[32];
@@ -145,6 +147,7 @@ int main(void)
 	  send_to_nextion(command);
 
 	  CAN_Transmit();
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
 	  // Wait for the specified delay
 //	  HAL_Delay(5);
     /* USER CODE END WHILE */
@@ -365,59 +368,64 @@ int oscillate_value() {
 //}
 
 void CAN_Transmit() {
-	CAN_TxHeaderTypeDef TxHeader;
-	uint32_t TxMailbox;
+	uint32_t currentTime = HAL_GetTick();
 
-	// Create a telemetry_packet instance and initialize its fields
-	user_input_data_t dataToSend;
-	dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
-	dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
-	dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
-	dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
-	dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
-	dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
+	if(currentTime - lastSendTime >= 10) {
+		CAN_TxHeaderTypeDef TxHeader;
+		uint32_t TxMailbox;
 
-	uint8_t* rawData = (uint8_t*)&dataToSend;
+		// Create a telemetry_packet instance and initialize its fields
+		user_input_data_t dataToSend;
+		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
+		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
+		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
+		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
+		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
+		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
 
-	// Initialize CAN Header
-	TxHeader.StdId = 0x101;           // CAN ID for the message
-	TxHeader.ExtId = 0;
-	TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-	TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-	TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
+		uint8_t* rawData = (uint8_t*)&dataToSend;
 
-	uint8_t frameData[8];             // Temporary buffer for each CAN frame
+		// Initialize CAN Header
+		TxHeader.StdId = 0x101;           // CAN ID for the message
+		TxHeader.ExtId = 0;
+		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
+		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
+		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
 
-	// Calculate the size of the telemetry_packet struct
-	int totalSize = sizeof(user_input_data_t);
+		uint8_t frameData[8];             // Temporary buffer for each CAN frame
 
-	// Split the telemetry_packet into CAN frames
-	for (int i = 0; i < totalSize; i += 8) {
-	    // Calculate the size of the current chunk (for the last frame)
-	    int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
+		// Calculate the size of the telemetry_packet struct
+		int totalSize = sizeof(user_input_data_t);
 
-	    // Copy the next chunk of data into the frame buffer
-	    memcpy(frameData, &rawData[i], chunkSize);
+		// Split the telemetry_packet into CAN frames
+		for (int i = 0; i < totalSize; i += 8) {
+			// Calculate the size of the current chunk (for the last frame)
+			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
 
-	    // Adjust DLC for the last frame
-	    TxHeader.DLC = chunkSize;
+			// Copy the next chunk of data into the frame buffer
+			memcpy(frameData, &rawData[i], chunkSize);
 
-	    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
-	    if (status != HAL_OK) {
-	        // Inspect the error
-	        if (status == HAL_ERROR) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-	        } else if (status == HAL_BUSY) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-	        } else if (status == HAL_TIMEOUT) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-	        }
+			// Adjust DLC for the last frame
+			TxHeader.DLC = chunkSize;
 
-	        // Optionally log the state of CAN error counters
-	        uint32_t error = HAL_CAN_GetError(&hcan);
-	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
-	    }
-	    HAL_Delay(1);
+			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
+			if (status != HAL_OK) {
+				// Inspect the error
+				if (status == HAL_ERROR) {
+					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+				} else if (status == HAL_BUSY) {
+					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+				} else if (status == HAL_TIMEOUT) {
+					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+				}
+
+				// Optionally log the state of CAN error counters
+				uint32_t error = HAL_CAN_GetError(&hcan);
+				printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+			}
+			lastSendTime = currentTime;  // Update last transmission time
+			HAL_Delay(1);
+		}
 	}
 }
 

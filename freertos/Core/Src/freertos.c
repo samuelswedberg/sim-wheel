@@ -130,8 +130,8 @@ uint32_t max_position = 0;
 user_input_data_t gUserInputData;
 pedal_data_t gPedalData;
 
-int gDebugCounter = 0;
-
+int gDebugCounter1 = 0;
+int gDebugCounter2 = 0;
 /*
  * Default strength is 0.5 (results in bell curve feedback)
  * Over drive would be greater than 0.5
@@ -170,7 +170,6 @@ void motor_rotate_left();
 void motor_rotate_right();
 float read_hall_sensor();
 void move_to_position(uint32_t target_position);
-void RxCAN();
 void processCAN();
 /* USER CODE END FunctionPrototypes */
 
@@ -772,7 +771,7 @@ void processCAN() {
     uint8_t rxData[8];  // Buffer to store the received data
 
     // Optional: Check FIFO1 if used
-    if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
+    while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
         if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
             // Process the received message
             printf("Message Received from ID: 0x%03X, Data: %02X %02X %02X %02X\n",
@@ -791,12 +790,12 @@ void processCAN() {
 					// Copy buffer into the telemetry_packet struct
 					memcpy(&gUserInputData, buffer, sizeof(user_input_data_t));
 					offset = 0; // Reset offset for the next packet
-					gDebugCounter++;
+					gDebugCounter1++;
 					// Process the received telemetry data
 //					ProcessTelemetryData(&gReceivedTelemetry);
 				}
 			}
-            if (rxHeader.StdId == 0x102) {
+            else if (rxHeader.StdId == 0x102) {
 				static uint8_t buffer[sizeof(pedal_data_t)];
 				static uint8_t offset = 0;
 
@@ -810,7 +809,7 @@ void processCAN() {
 					// Copy buffer into the telemetry_packet struct
 					memcpy(&gPedalData, buffer, sizeof(pedal_data_t));
 					offset = 0; // Reset offset for the next packet
-
+					gDebugCounter2++;
 					// Process the received telemetry data
 //					ProcessTelemetryData(&gReceivedTelemetry);
 				}
