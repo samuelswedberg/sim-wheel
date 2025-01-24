@@ -36,7 +36,10 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
+	float   tForceFB;
 } telemetry_packet;
+
+telemetry_packet telemetry_data;
 
 typedef struct __attribute__((__packed__)) {
     uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
@@ -65,9 +68,6 @@ CAN_HandleTypeDef hcan;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-// GLOBAL VARIABLES
-telemetry_packet gReceivedTelemetry;
-
 // Oscillation state variables
 int value = 0;
 int direction = 1; // 1 for increasing, -1 for decreasing
@@ -94,6 +94,7 @@ void send_to_hmi(const char *command);
 int oscillate_value();
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
+int32_t map_value(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
 /* USER CODE END 0 */
 
 /**
@@ -135,13 +136,22 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
+	telemetry_data.tRpm = 0;
+	telemetry_data.tRpm = 0;
+	telemetry_data.tSpeedKmh = 0;
+	telemetry_data.tHasDRS = 0;
+	telemetry_data.tDrs = 0;
+	telemetry_data.tPitLim = 0;
+	telemetry_data.tFuel = 0;
+	telemetry_data.tBrakeBias = 0;
   while (1)
   {
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 	  int oscillated_value = oscillate_value();
 
+	  int rpm = map_value(telemetry_data.tRpm, 0, 12000, 0, 100);
 	  char command[32];
-	  snprintf(command, sizeof(command), "rpmbar.val=%d", gSteering);
+	  snprintf(command, sizeof(command), "rpmbar.val=%d", rpm);
 
 	  // Send the command to the Nextion display
 	  send_to_nextion(command);
@@ -338,6 +348,23 @@ int oscillate_value() {
     return value;
 }
 
+/**
+ * Map a value from one range to another.
+ *
+ * @param input: The value to map.
+ * @param in_min: The minimum of the input range.
+ * @param in_max: The maximum of the input range.
+ * @param out_min: The minimum of the output range.
+ * @param out_max: The maximum of the output range.
+ * @return The mapped value in the output range.
+ */
+int32_t map_value(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
+    if (input < in_min) input = in_min;
+    if (input > in_max) input = in_max;
+
+    return (input - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 /*
  * CAN BUS FUNCTIONS
  */
@@ -449,11 +476,8 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			// Check if the entire packet has been received
 			if (offset >= sizeof(telemetry_packet)) {
 				// Copy buffer into the telemetry_packet struct
-				memcpy(&gReceivedTelemetry, buffer, sizeof(telemetry_packet));
+				memcpy(&telemetry_data, buffer, sizeof(telemetry_packet));
 				offset = 0; // Reset offset for the next packet
-
-				// Process the received telemetry data
-				ProcessTelemetryData(&gReceivedTelemetry);
 			}
 		}
     }

@@ -34,7 +34,6 @@
 #include "stm32f4xx_hal.h"
 #include <math.h>
 #include <time.h>
-#include <usart.h>
 #include <tim.h>
 #include <can.h>
 #include <adc.h>
@@ -44,7 +43,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-// !!! MUST MATCH PICO STRUCT
+// !!! STRUCTS MUST MATCH ACROSS DEVICES !!!
 typedef struct __attribute__((packed)){
 	int32_t  tRpm;
 	int32_t  tGear;
@@ -54,6 +53,7 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
+	float   tForceFB;
 } telemetry_packet;
 
 telemetry_packet telemetry_data;
@@ -150,7 +150,6 @@ osSemaphoreId uartMutexHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-void runUART();
 void runCAN();
 void runReport();
 float constrain(float x, float lower, float upper);
@@ -387,10 +386,6 @@ void StartCommLoopTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  if (osSemaphoreWait(uartMutexHandle, 10) == osOK) {
-		  runUART();
-	  }
-
 	  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
 		  runCAN();
 	  }
@@ -422,38 +417,6 @@ void DWT_Delay_us(uint32_t us) {
     }
 }
 
-void process_command(char* cmd) {
-	cJSON *json_data = cJSON_Parse(cmd);
-	if (json_data != NULL) {
-		// Extract data from the JSON object
-		cJSON *rpm = cJSON_GetObjectItem(json_data, "rpm");
-		cJSON *gear = cJSON_GetObjectItem(json_data, "gear");
-		cJSON *speedKmh = cJSON_GetObjectItem(json_data, "speedKmh");
-		cJSON *hasDRS = cJSON_GetObjectItem(json_data, "hasDRS");
-		cJSON *drs = cJSON_GetObjectItem(json_data, "drs");
-		cJSON *pitLim = cJSON_GetObjectItem(json_data, "pitLim");
-		cJSON *fuel = cJSON_GetObjectItem(json_data, "fuel");
-		cJSON *brakeBias = cJSON_GetObjectItem(json_data, "brakeBias");
-		cJSON *forceFB = cJSON_GetObjectItem(json_data, "forceFB");
-
-		// Check if items were found and extract values
-		if (cJSON_IsNumber(rpm)) { telemetry_data.tRpm = rpm->valueint; }
-		if (cJSON_IsNumber(gear)) { telemetry_data.tGear = gear->valueint; }
-		if (cJSON_IsNumber(speedKmh)) { telemetry_data.tSpeedKmh = speedKmh->valueint; }
-		if (cJSON_IsNumber(hasDRS)) { telemetry_data.tHasDRS = hasDRS->valueint; }
-		if (cJSON_IsNumber(drs)) { telemetry_data.tDrs = drs->valueint; }
-		if (cJSON_IsNumber(pitLim)) { telemetry_data.tPitLim = pitLim->valueint; }
-		if (cJSON_IsNumber(fuel)) { telemetry_data.tFuel = fuel->valueint; }
-		if (cJSON_IsNumber(brakeBias)) { telemetry_data.tBrakeBias = brakeBias->valueint; }
-
-		if (cJSON_IsNumber(forceFB)) { gFfbSignal = (float)forceFB->valuedouble; }
-		}
-		// Cleanup
-		cJSON_Delete(json_data);
-		// Clear the buffer for the next message
-		memset(gCommandData, 0, BUFFER_SIZE);
-}
-
 void runReport() {
 	HIDReport.steering = gSteering;        // Steering data (0-255)
 	HIDReport.throttle = gAccel;        // Throttle data (0-255)
@@ -462,7 +425,7 @@ void runReport() {
 	HIDReport.buttons = 0;   // Each bit represents a button'
 	HIDReport.rz = 0;
 	HIDReport.slider = 0;
-//	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
+	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
 }
 
 void runCAN() {
@@ -471,7 +434,7 @@ void runCAN() {
 
 	// Create a telemetry_packet instance and initialize its fields
 //	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; DEBUG CODE
-	telemetry_packet dataToSend = {3600, 1, gSteering, 0, 0, 0, 45, 0};
+	telemetry_packet dataToSend = telemetry_data;
 	uint8_t* rawData = (uint8_t*)&dataToSend;
 
 	// Initialize CAN Header
@@ -515,14 +478,7 @@ void runCAN() {
 	    HAL_Delay(1);
 	}
 
-	releaseSPI();
-}
-
-void runUART() {
-	// Process the command received via UART
-	process_command(gCommandData);
-	// Re-enable UART reception
-	HAL_UART_Receive_IT(&huart2, rx_buffer, sizeof(rx_buffer));
+	osSemaphoreRelease(spiSendMutexHandle);
 }
 
 float oscillate() {
@@ -688,23 +644,13 @@ void set_motor_direction(uint8_t direction) {
     }
 }
 
-extern void releaseSPI() {
-	// Process the received data (rx_buffer)
-	memcpy(gCommandData, rx_buffer, sizeof(rx_buffer));
-	osSemaphoreRelease(spiSendMutexHandle);
-	// Clear the buffer for the next message
-	memset(rx_buffer, 0, BUFFER_SIZE);
-}
-
-extern void signalTelemetryTask() {
-    // Pull CS line high to deselect the slave
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, GPIO_PIN_SET);
-    DWT_Delay_us(2);
-    osSemaphoreRelease(uartMutexHandle);
-}
-
-extern void restartUart(UART_HandleTypeDef *huart) {
-	HAL_UART_Receive_IT(huart, rx_buffer, sizeof(rx_buffer));
+extern void signalTelemetryTask(uint8_t *Buf, uint32_t Len) {
+	if (Len == sizeof(telemetry_packet))  // Verify the data size matches the struct size
+	{
+		// Process the received data (rx_buffer)
+		memcpy(&telemetry_data, Buf, sizeof(telemetry_data));
+		osSemaphoreRelease(uartMutexHandle);
+	}
 }
 
 void motor_rotate_left() {

@@ -56,16 +56,15 @@
 
 /* External variables --------------------------------------------------------*/
 extern CAN_HandleTypeDef hcan1;
-extern UART_HandleTypeDef huart2;
 extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
 extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
 /* USER CODE BEGIN 0 */
-void log_message(const char *message) {
-    // Send the log message over UART
-    HAL_UART_Transmit(&huart2, (uint8_t *)message, strlen(message), HAL_MAX_DELAY);
-}
+//void log_message(const char *message) {
+//    // Send the log message over UART
+//    HAL_UART_Transmit(&huart2, (uint8_t *)message, strlen(message), HAL_MAX_DELAY);
+//}
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -128,7 +127,7 @@ void HardFault_Handler(void)
 	);
 
 	// Log the message
-	log_message(log_buffer);
+//	log_message(log_buffer);
 
 	NVIC_SystemReset();
   /* USER CODE END HardFault_IRQn 0 */
@@ -230,20 +229,6 @@ void CAN1_RX1_IRQHandler(void)
   /* USER CODE BEGIN CAN1_RX1_IRQn 1 */
 
   /* USER CODE END CAN1_RX1_IRQn 1 */
-}
-
-/**
-  * @brief This function handles USART2 global interrupt.
-  */
-void USART2_IRQHandler(void)
-{
-  /* USER CODE BEGIN USART2_IRQn 0 */
-
-  /* USER CODE END USART2_IRQn 0 */
-  HAL_UART_IRQHandler(&huart2);
-  /* USER CODE BEGIN USART2_IRQn 1 */
-
-  /* USER CODE END USART2_IRQn 1 */
 }
 
 /**

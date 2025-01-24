@@ -22,7 +22,6 @@
 #include "adc.h"
 #include "can.h"
 #include "tim.h"
-#include "usart.h"
 #include "usb_otg.h"
 #include "gpio.h"
 
@@ -70,23 +69,23 @@ void MX_FREERTOS_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void send_response(const char* str) {
-    if (str == NULL) {
-        return; // Handle null pointer case if necessary
-    }
-
-    // Calculate the length of the string
-    uint16_t len = strlen(str);
-
-    // Transmit the string using HAL_UART_Transmit
-    HAL_UART_Transmit(&huart2, (uint8_t*)str, len, HAL_MAX_DELAY);
-}
-
-int _write(int file, char *data, int len) {
-    // Replace 'huart2' with your specific UART handle (e.g., 'huart1', 'huart3', etc.)
-    HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
-    return len;
-}
+//void send_response(const char* str) {
+//    if (str == NULL) {
+//        return; // Handle null pointer case if necessary
+//    }
+//
+//    // Calculate the length of the string
+//    uint16_t len = strlen(str);
+//
+//    // Transmit the string using HAL_UART_Transmit
+//    HAL_UART_Transmit(&huart2, (uint8_t*)str, len, HAL_MAX_DELAY);
+//}
+//
+//int _write(int file, char *data, int len) {
+//    // Replace 'huart2' with your specific UART handle (e.g., 'huart1', 'huart3', etc.)
+//    HAL_UART_Transmit(&huart2, (uint8_t *)data, len, HAL_MAX_DELAY);
+//    return len;
+//}
 /* USER CODE END 0 */
 
 /**
@@ -118,7 +117,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_USB_OTG_FS_PCD_Init();
@@ -152,10 +150,12 @@ int main(void)
   // Task creation
   // Start scheduler
   vTaskStartScheduler();
-  send_response("STM Started");
 
   while (1)
   {
+	  char message[] = "Hello from STM32!\r\n";
+	  CDC_Transmit((uint8_t*)message, strlen(message));
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -211,50 +211,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == USART2) {
-        // Notify the telemetry task to process the command
-        signalTelemetryTask();
-    }
-}
-
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-    uint32_t error_code = HAL_UART_GetError(huart);
-
-    // Identify which UART instance is causing the error (USART2 in this case)
-    if (huart->Instance == USART2) {
-
-        // Handle Overrun Error (ORE)
-        if (error_code & HAL_UART_ERROR_ORE) {
-            __HAL_UART_CLEAR_OREFLAG(huart);  // Clear overrun error flag
-            // Optionally log or handle the error
-            //send_response("UART Overrun Error");
-        }
-
-        // Handle Framing Error (FE)
-        if (error_code & HAL_UART_ERROR_FE) {
-            // Clear framing error flag automatically by reading the status register
-        	send_response("UART Framing Error");
-        }
-
-        // Handle Parity Error (PE)
-        if (error_code & HAL_UART_ERROR_PE) {
-            // Parity errors may indicate data corruption or mismatch in settings
-        	send_response("UART Parity Error");
-        }
-
-        // Handle Noise Error (NE)
-        if (error_code & HAL_UART_ERROR_NE) {
-            // Noise errors are usually transient but worth logging
-        	send_response("UART Noise Error");
-        }
-
-        // Recovery: Restart UART reception after clearing the error flags
-        restartUart(huart);
-    }
-}
-
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 	if(hcan->Instance == CAN1)
