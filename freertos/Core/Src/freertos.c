@@ -53,6 +53,7 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
+	int32_t  tMaxRpm;
 	float   tForceFB;
 } telemetry_packet;
 

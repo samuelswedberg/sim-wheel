@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 /* USER CODE END Includes */
 
@@ -36,6 +38,7 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
+	int32_t  tMaxRpm;
 	float   tForceFB;
 } telemetry_packet;
 
@@ -90,11 +93,15 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void send_to_hmi(const char *command);
 int oscillate_value();
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
+void prepareTelemetry();
+void send_to_nextion(const char *var_name, int value);
+
 int32_t map_value(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
+const char* map_gear(int value);
+char* int_to_string(int value);
 /* USER CODE END 0 */
 
 /**
@@ -147,16 +154,10 @@ int main(void)
   while (1)
   {
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
-	  int oscillated_value = oscillate_value();
 
-	  int rpm = map_value(telemetry_data.tRpm, 0, 12000, 0, 100);
-	  char command[32];
-	  snprintf(command, sizeof(command), "rpmbar.val=%d", rpm);
-
-	  // Send the command to the Nextion display
-	  send_to_nextion(command);
-
+	  prepareTelemetry();
 	  CAN_Transmit();
+
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
 	  // Wait for the specified delay
 //	  HAL_Delay(5);
@@ -327,11 +328,43 @@ void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms
 /*
  * NEXTION UART FUNCTIONS
  */
-void send_to_nextion(const char *command) {
-	// Send the command string
+void prepareTelemetry() {
+//	int mappedRpm = map_value(telemetry_data.tRpm, 0, telemetry_data.tMaxRpm, 0, 100);
+	char *mappedRpm = int_to_string(telemetry_data.tRpm);
+	char *mappedGear = map_gear(telemetry_data.tGear);
+	char *mappedSpeed = int_to_string(telemetry_data.tSpeedKmh);
+	char *mappedHasDrs = int_to_string(telemetry_data.tHasDRS);
+	char *mappedPitLim = int_to_string(telemetry_data.tPitLim);
+	char *mappedFuel = int_to_string(telemetry_data.tFuel);
+	char *mappedBrakeBias = int_to_string(telemetry_data.tBrakeBias);
+
+//	send_int_to_nextion("rpmbar", mappedRpm);
+	send__char_to_nextion("rpm", mappedRpm);
+	send__char_to_nextion("gear", mappedGear);
+	send__char_to_nextion("speed", mappedSpeed);
+	//send__char_to_nextion("mappedHasDrs", mappedHasDrs);
+	//send_to_nextion("pitlim", telemetry_data.tPitLim);
+	send__char_to_nextion("fuel", mappedFuel);
+	//send_to_nextion("gear", telemetry_data.tBrakeBias);
+
+}
+
+void send_int_to_nextion(const char *var_name, int value) {
+	char command[32];
+	snprintf(command, sizeof(command), "%s.val=%d", var_name, value);
+
 	HAL_UART_Transmit(&huart1, (uint8_t *)command, strlen(command), HAL_MAX_DELAY);
 
-	// Send the termination bytes (0xFF 0xFF 0xFF)
+	uint8_t termination_bytes[3] = {0xFF, 0xFF, 0xFF};
+	HAL_UART_Transmit(&huart1, termination_bytes, sizeof(termination_bytes), HAL_MAX_DELAY);
+}
+
+void send__char_to_nextion(const char *var_name, char *value) {
+	char command[32];
+	snprintf(command, sizeof(command), "%s.txt=\"%s\"", var_name, value);
+
+	HAL_UART_Transmit(&huart1, (uint8_t *)command, strlen(command), HAL_MAX_DELAY);
+
 	uint8_t termination_bytes[3] = {0xFF, 0xFF, 0xFF};
 	HAL_UART_Transmit(&huart1, termination_bytes, sizeof(termination_bytes), HAL_MAX_DELAY);
 }
@@ -348,6 +381,7 @@ int oscillate_value() {
     return value;
 }
 
+
 /**
  * Map a value from one range to another.
  *
@@ -359,41 +393,59 @@ int oscillate_value() {
  * @return The mapped value in the output range.
  */
 int32_t map_value(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
+    if (in_max == in_min) {
+        return out_min;
+    }
+
     if (input < in_min) input = in_min;
     if (input > in_max) input = in_max;
 
     return (input - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
+const char* map_gear(int value)  {
+    if (value < 0 || value > 13) {
+        return "X";
+    }
+
+    switch (value) {
+        case 0: return "R";
+        case 1: return "N";
+        case 2: return "1";
+        case 3: return "2";
+        case 4: return "3";
+        case 5: return "4";
+        case 6: return "5";
+        case 7: return "6";
+        case 8: return "7";
+        case 9: return "8";
+        case 10: return "9";
+        case 11: return "10";
+        case 12: return "11";
+        case 13: return "12";
+
+        default:
+        	return "X";
+    }
+}
+
+char* int_to_string(int value) {
+    int buffer_size = snprintf(NULL, 0, "%d", value) + 1;
+
+    char *string = (char*)malloc(buffer_size);
+
+    if (string == NULL) {
+        return NULL;
+    }
+
+    snprintf(string, buffer_size, "%d", value);
+
+    return string;
+}
+
 /*
  * CAN BUS FUNCTIONS
  */
-//void CAN_Transmit() {
-//	CAN_TxHeaderTypeDef txHeader;
-//	uint32_t txMailbox;
-//	uint8_t data[8] = {100, 101, 102, 103, 104, 105, 106, 107};
-//
-//	txHeader.StdId = 0x001;
-//	txHeader.ExtId = 0;
-//	txHeader.IDE = CAN_ID_STD;
-//	txHeader.RTR = CAN_RTR_DATA;
-//	txHeader.DLC = 8;
-//
-//	HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &txHeader, data, &txMailbox);
-//	if (status != HAL_OK) {
-//		if (status == HAL_ERROR) {
-//			printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-//		} else if (status == HAL_BUSY) {
-//			printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-//		} else if (status == HAL_TIMEOUT) {
-//			printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-//		}
-//
-//		uint32_t error = HAL_CAN_GetError(&hcan);
-//		printf("CAN Error Code: 0x%08lx\n", error);
-//	}
-//}
-
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
@@ -481,15 +533,6 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			}
 		}
     }
-}
-
-void ProcessTelemetryData(const telemetry_packet *data) {
-    // Example: Log or handle telemetry values
-    gSteering = data->tSpeedKmh;
-
-
-    // Handle the telemetry data as needed
-    // For example, update a display, store in memory, or take action
 }
 /* USER CODE END 4 */
 
