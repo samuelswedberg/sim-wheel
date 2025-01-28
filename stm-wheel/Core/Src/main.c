@@ -53,10 +53,43 @@ typedef struct __attribute__((__packed__)) {
     int16_t encoder_3;      // Third encoder value
 } user_input_data_t;
 
+user_input_data_t user_input_data;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+// GPIOA
+#define BUTTON_1_PIN  GPIO_PIN_0
+#define BUTTON_2_PIN  GPIO_PIN_1
+#define BUTTON_3_PIN  GPIO_PIN_2
+#define BUTTON_4_PIN  GPIO_PIN_3
+#define BUTTON_5_PIN  GPIO_PIN_4
+#define BUTTON_6_PIN  GPIO_PIN_5
+#define BUTTON_7_PIN  GPIO_PIN_6
+#define BUTTON_8_PIN  GPIO_PIN_7
+
+#define R_ENC_PIN_B GPIO_PIN_15
+
+#define NEOPIXEL_PIN GPIO_PIN_8
+
+// GPIOB
+#define BUTTON_9_PIN  GPIO_PIN_0
+#define BUTTON_10_PIN GPIO_PIN_1
+
+#define HALL_BUTTON_1_PIN GPIO_PIN_9
+#define HALL_BUTTON_2_PIN GPIO_PIN_8
+
+#define L_ENC_PIN_A GPIO_PIN_7
+#define L_ENC_PIN_B GPIO_PIN_6
+#define C_ENC_PIN_A GPIO_PIN_4
+#define C_ENC_PIN_B GPIO_PIN_5
+#define R_ENC_PIN_A GPIO_PIN_3
+
+#define HALL_ANALOG_1_PIN GPIO_PIN_15
+#define HALL_ANALOG_2_PIN GPIO_PIN_14
+
+
+
 
 /* USER CODE END PD */
 
@@ -96,10 +129,12 @@ static void MX_USART1_UART_Init(void);
 int oscillate_value();
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
-void prepareTelemetry();
+void updateTelemetry();
+void updateButtons();
 void send_to_nextion(const char *var_name, int value);
+void send__char_to_nextion(const char *var_name, char *value);
 
-int32_t map_value(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
+int32_t map_rpmbar(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
 const char* map_gear(int value);
 char* int_to_string(int value);
 /* USER CODE END 0 */
@@ -155,7 +190,9 @@ int main(void)
   {
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 
-	  prepareTelemetry();
+	  updateTelemetry();
+	  updateButtons();
+
 	  CAN_Transmit();
 
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
@@ -301,6 +338,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
@@ -311,6 +349,29 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PA0 PA1 PA2 PA3
+                           PA4 PA5 PA6 PA7
+                           PA8 PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
+                          |GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
+                          |GPIO_PIN_8|GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB0 PB1 PB3 PB4
+                           PB5 PB6 PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4
+                          |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB14 PB15 PB8 PB9 */
+  GPIO_InitStruct.Pin = GPIO_PIN_14|GPIO_PIN_15|GPIO_PIN_8|GPIO_PIN_9;
+  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -328,7 +389,7 @@ void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms
 /*
  * NEXTION UART FUNCTIONS
  */
-void prepareTelemetry() {
+void updateTelemetry() {
 //	int mappedRpm = map_value(telemetry_data.tRpm, 0, telemetry_data.tMaxRpm, 0, 100);
 	char *mappedRpm = int_to_string(telemetry_data.tRpm);
 	char *mappedGear = map_gear(telemetry_data.tGear);
@@ -392,7 +453,7 @@ int oscillate_value() {
  * @param out_max: The maximum of the output range.
  * @return The mapped value in the output range.
  */
-int32_t map_value(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
+int32_t map_rpmbar(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max) {
     if (in_max == in_min) {
         return out_min;
     }
@@ -441,6 +502,41 @@ char* int_to_string(int value) {
     snprintf(string, buffer_size, "%d", value);
 
     return string;
+}
+
+void updateButtons() {
+	user_input_data.buttons = 0; // Clear all bits initially
+
+	// Buttons
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_1_PIN)) user_input_data.buttons |= (1 << 0);
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_2_PIN)) user_input_data.buttons |= (1 << 1);
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_3_PIN)) user_input_data.buttons |= (1 << 2);
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_4_PIN)) user_input_data.buttons |= (1 << 3);
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_5_PIN)) user_input_data.buttons |= (1 << 4);
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_6_PIN)) user_input_data.buttons |= (1 << 5);
+	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_7_PIN)) user_input_data.buttons |= (1 << 6);
+	if (HAL_GPIO_ReadPin(GPIOB, BUTTON_8_PIN)) user_input_data.buttons |= (1 << 7);
+	if (HAL_GPIO_ReadPin(GPIOB, BUTTON_9_PIN)) user_input_data.buttons |= (1 << 8);
+	if (HAL_GPIO_ReadPin(GPIOB, BUTTON_10_PIN)) user_input_data.buttons |= (1 << 9);
+
+	// Hall Buttons
+	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_1_PIN)) user_input_data.buttons |= (1 << 10);
+	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_2_PIN)) user_input_data.buttons |= (1 << 11);
+
+
+	// TODO: Change these bottom values, top is good for buttons
+
+	// Hall Clutch Analog
+	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_1_PIN)) user_input_data.buttons |= (1 << 10);
+	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_2_PIN)) user_input_data.buttons |= (1 << 11);
+
+	// Encoders
+	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_A)) user_input_data.buttons |= (1 << 10);
+	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
+	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
+	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_B)) user_input_data.buttons |= (1 << 10);
+	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
+	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
 }
 
 /*

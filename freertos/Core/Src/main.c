@@ -153,9 +153,6 @@ int main(void)
 
   while (1)
   {
-	  char message[] = "Hello from STM32!\r\n";
-	  CDC_Transmit((uint8_t*)message, strlen(message));
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

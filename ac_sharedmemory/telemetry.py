@@ -74,8 +74,11 @@ def receive_data(ser):
     except Exception as e:
         raise RuntimeError(f"Unexpected error in receive_data: {e}") from e
 
+"""
+Attempt to reconnect to the serial port
+"""
 def reconnect_serial():
-    """Attempt to reconnect to the serial port."""
+
     while True:
         try:
             print("Attempting to reconnect...")
@@ -86,8 +89,10 @@ def reconnect_serial():
             print(f"Reconnection failed: {e}")
             time.sleep(5)  # Wait before retrying
 
+"""
+Main loop to send data and handle reconnections
+"""
 def main():
-    """Main loop to send data and handle reconnections."""
     ser = None
     while True:
         try:
