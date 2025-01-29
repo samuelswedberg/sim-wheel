@@ -11,7 +11,7 @@
 ../Core/Src/main.c:456:9:map_rpmbar	4
 ../Core/Src/main.c:467:13:map_gear	17
 ../Core/Src/main.c:493:7:int_to_string	2
-../Core/Src/main.c:507:6:updateButtons	21
+../Core/Src/main.c:507:6:updateButtons	11
 ../Core/Src/main.c:545:6:CAN_Transmit	7
 ../Core/Src/main.c:608:6:HAL_CAN_RxFifo1MsgPendingCallback	4
 ../Core/Src/main.c:639:6:Error_Handler	1

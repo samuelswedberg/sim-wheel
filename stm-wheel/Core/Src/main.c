@@ -357,7 +357,7 @@ static void MX_GPIO_Init(void)
                           |GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
                           |GPIO_PIN_8|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB0 PB1 PB3 PB4
@@ -508,35 +508,35 @@ void updateButtons() {
 	user_input_data.buttons = 0; // Clear all bits initially
 
 	// Buttons
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_1_PIN)) user_input_data.buttons |= (1 << 0);
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_2_PIN)) user_input_data.buttons |= (1 << 1);
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_3_PIN)) user_input_data.buttons |= (1 << 2);
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_4_PIN)) user_input_data.buttons |= (1 << 3);
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_5_PIN)) user_input_data.buttons |= (1 << 4);
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_6_PIN)) user_input_data.buttons |= (1 << 5);
-	if (HAL_GPIO_ReadPin(GPIOA, BUTTON_7_PIN)) user_input_data.buttons |= (1 << 6);
-	if (HAL_GPIO_ReadPin(GPIOB, BUTTON_8_PIN)) user_input_data.buttons |= (1 << 7);
-	if (HAL_GPIO_ReadPin(GPIOB, BUTTON_9_PIN)) user_input_data.buttons |= (1 << 8);
-	if (HAL_GPIO_ReadPin(GPIOB, BUTTON_10_PIN)) user_input_data.buttons |= (1 << 9);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_1_PIN)) user_input_data.buttons |= (1 << 0);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_2_PIN)) user_input_data.buttons |= (1 << 1);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_3_PIN)) user_input_data.buttons |= (1 << 2);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_4_PIN)) user_input_data.buttons |= (1 << 3);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_5_PIN)) user_input_data.buttons |= (1 << 4);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_6_PIN)) user_input_data.buttons |= (1 << 5);
+	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_7_PIN)) user_input_data.buttons |= (1 << 6);
+	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_8_PIN)) user_input_data.buttons |= (1 << 7);
+	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_9_PIN)) user_input_data.buttons |= (1 << 8);
+	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_10_PIN)) user_input_data.buttons |= (1 << 9);
 
-	// Hall Buttons
-	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_1_PIN)) user_input_data.buttons |= (1 << 10);
-	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_2_PIN)) user_input_data.buttons |= (1 << 11);
+//	// Hall Buttons
+//	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_1_PIN)) user_input_data.buttons |= (1 << 10);
+//	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_2_PIN)) user_input_data.buttons |= (1 << 11);
+//
+//
+//	// TODO: Change these bottom values, top is good for buttons
+//
+//	// Hall Analog Clutch
+//	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_1_PIN)) user_input_data.buttons |= (1 << 10);
+//	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_2_PIN)) user_input_data.buttons |= (1 << 11);
 
-
-	// TODO: Change these bottom values, top is good for buttons
-
-	// Hall Clutch Analog
-	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_1_PIN)) user_input_data.buttons |= (1 << 10);
-	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_2_PIN)) user_input_data.buttons |= (1 << 11);
-
-	// Encoders
-	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_A)) user_input_data.buttons |= (1 << 10);
-	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
-	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
-	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_B)) user_input_data.buttons |= (1 << 10);
-	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
-	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
+//	// Encoders
+//	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_A)) user_input_data.buttons |= (1 << 10);
+//	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
+//	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
+//	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_B)) user_input_data.buttons |= (1 << 10);
+//	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
+//	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
 }
 
 /*
@@ -550,13 +550,13 @@ void CAN_Transmit() {
 		uint32_t TxMailbox;
 
 		// Create a telemetry_packet instance and initialize its fields
-		user_input_data_t dataToSend;
-		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
-		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
-		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
-		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
-		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
-		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
+		user_input_data_t dataToSend = user_input_data;
+//		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
+//		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
+//		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
+//		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
+//		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
+//		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
 
 		uint8_t* rawData = (uint8_t*)&dataToSend;
 
