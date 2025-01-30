@@ -99,6 +99,8 @@ user_input_data_t user_input_data;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 CAN_HandleTypeDef hcan;
 
 UART_HandleTypeDef huart1;
@@ -120,6 +122,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -170,6 +173,7 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN_Init();
   MX_USART1_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_Start(&hcan);
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
@@ -213,6 +217,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -222,7 +227,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -237,10 +242,63 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV2;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -350,11 +408,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA0 PA1 PA2 PA3
-                           PA4 PA5 PA6 PA7
+  /*Configure GPIO pins : PA4 PA5 PA6 PA7
                            PA8 PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
-                          |GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
                           |GPIO_PIN_8|GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
@@ -519,17 +575,6 @@ void updateButtons() {
 	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_9_PIN)) user_input_data.buttons |= (1 << 8);
 	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_10_PIN)) user_input_data.buttons |= (1 << 9);
 
-//	// Hall Buttons
-//	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_1_PIN)) user_input_data.buttons |= (1 << 10);
-//	if (HAL_GPIO_ReadPin(GPIOB, HALL_BUTTON_2_PIN)) user_input_data.buttons |= (1 << 11);
-//
-//
-//	// TODO: Change these bottom values, top is good for buttons
-//
-//	// Hall Analog Clutch
-//	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_1_PIN)) user_input_data.buttons |= (1 << 10);
-//	if (HAL_GPIO_ReadPin(GPIOA, HALL_ANALOG_2_PIN)) user_input_data.buttons |= (1 << 11);
-
 //	// Encoders
 //	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_A)) user_input_data.buttons |= (1 << 10);
 //	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
@@ -539,6 +584,28 @@ void updateButtons() {
 //	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
 }
 
+void read_hall_sensors(user_input_data_t *data) {
+    uint32_t adc_value_1 = 0, adc_value_2 = 0;
+
+    // Start ADC conversions (assumes ADC1 is configured)
+    HAL_ADC_Start(&hadc1);
+    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+        adc_value_1 = HAL_ADC_GetValue(&hadc1); // Read first hall sensor
+    }
+    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+        adc_value_2 = HAL_ADC_GetValue(&hadc1); // Read second hall sensor
+    }
+    HAL_ADC_Stop(&hadc1);
+
+    // Map 12-bit ADC values (0-4095) to 8-bit range (0-255)
+    data->hall_analog_1 = (adc_value_1 * 255) / 4095;
+    data->hall_analog_2 = (adc_value_2 * 255) / 4095;
+
+    // Optionally set the hall sensor button bits (bit 10 and 11)
+    if (data->hall_analog_1 > 3.8) data->buttons |= (1 << 10);
+    if (data->hall_analog_2 > 3.8) data->buttons |= (1 << 11);
+
+}
 /*
  * CAN BUS FUNCTIONS
  */

@@ -80,12 +80,15 @@ typedef struct __attribute__((__packed__)) {
     int16_t encoder_3;      // Third encoder value
 } user_input_data_t;
 
+user_input_data_t user_input_data;
+
 typedef struct __attribute__((__packed__)) {
     int16_t encoder_1;      // First encoder value
     int16_t encoder_2;      // Second encoder value
     int16_t encoder_3;      // Third encoder value
 } pedal_data_t;
 
+pedal_data_t pedal_data;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -127,9 +130,6 @@ float hall_voltage = 0;
 float max_hall_voltage = 0;
 float gHall = 0;
 uint32_t max_position = 0;
-
-user_input_data_t gUserInputData;
-pedal_data_t gPedalData;
 
 int gDebugCounter1 = 0;
 int gDebugCounter2 = 0;
@@ -419,13 +419,18 @@ void DWT_Delay_us(uint32_t us) {
 }
 
 void runReport() {
-	HIDReport.steering = gSteering;        // Steering data (0-255)
-	HIDReport.throttle = gAccel;        // Throttle data (0-255)
-	HIDReport.brake = gBrake;           // Brake data (0-255)
-	HIDReport.clutch = 0;         // Clutch data (0-255)
-	HIDReport.buttons = 0;   // Each bit represents a button'
-	HIDReport.rz = 0;
-	HIDReport.slider = 0;
+	memset(&HIDReport, 0, sizeof(HIDReport_t));
+
+	HIDReport.steering = gSteering;
+	HIDReport.throttle = gAccel;
+	HIDReport.brake = gBrake;
+	HIDReport.clutch = 0;
+
+	HIDReport.buttons = user_input_data.buttons;
+
+	HIDReport.rz = (uint8_t) (user_input_data.encoder_1 & 0xFF);
+	HIDReport.slider = (uint8_t) (user_input_data.encoder_2 & 0xFF);
+
 	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
 }
 
@@ -760,11 +765,9 @@ void processCAN() {
 				// Check if the entire packet has been received
 				if (offset >= sizeof(user_input_data_t)) {
 					// Copy buffer into the telemetry_packet struct
-					memcpy(&gUserInputData, buffer, sizeof(user_input_data_t));
+					memcpy(&user_input_data, buffer, sizeof(user_input_data_t));
 					offset = 0; // Reset offset for the next packet
 					gDebugCounter1++;
-					// Process the received telemetry data
-//					ProcessTelemetryData(&gReceivedTelemetry);
 				}
 			}
             else if (rxHeader.StdId == 0x102) {
@@ -779,11 +782,9 @@ void processCAN() {
 				// Check if the entire packet has been received
 				if (offset >= sizeof(pedal_data_t)) {
 					// Copy buffer into the telemetry_packet struct
-					memcpy(&gPedalData, buffer, sizeof(pedal_data_t));
+					memcpy(&pedal_data, buffer, sizeof(pedal_data_t));
 					offset = 0; // Reset offset for the next packet
 					gDebugCounter2++;
-					// Process the received telemetry data
-//					ProcessTelemetryData(&gReceivedTelemetry);
 				}
 			}
 
