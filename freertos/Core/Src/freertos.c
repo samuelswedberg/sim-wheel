@@ -424,10 +424,19 @@ void DWT_Delay_us(uint32_t us) {
 void runReport() {
 	memset(&HIDReport, 0, sizeof(HIDReport_t));
 
+	uint16_t max_clutch = pedal_data.encoder_3;
+
+	if (user_input_data.hall_analog_1 > max_clutch) {
+		max_clutch = user_input_data.hall_analog_1;
+	}
+	if (user_input_data.hall_analog_1 > max_clutch) {
+		max_clutch = user_input_data.hall_analog_1;
+	}
+
 	HIDReport.steering = gSteering;
 	HIDReport.throttle = pedal_data.encoder_1;
 	HIDReport.brake = pedal_data.encoder_2;
-	HIDReport.clutch = pedal_data.encoder_3; // TODO: CHANGE THIS TO CHOOSE HIGHEST BETWEEN PEDAL & PADDLE
+	HIDReport.clutch = max_clutch;
 
 	HIDReport.buttons = user_input_data.buttons;
 

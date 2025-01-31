@@ -85,7 +85,9 @@ user_input_data_t user_input_data;
 #define NEOPIXEL_PIN GPIO_PIN_8
 
 
-
+#define ADC_CHANNEL_COUNT 4
+#define ADC_REST 2000
+#define ADC_MAX 2800
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -95,6 +97,7 @@ user_input_data_t user_input_data;
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 CAN_HandleTypeDef hcan;
 
@@ -108,13 +111,16 @@ int step = 1;      // Increment/Decrement step
 int delay_ms = 25; // Delay between updates
 
 uint32_t lastSendTime = 0;
+uint16_t adc_values[ADC_CHANNEL_COUNT];
 
-int gSteering = 0;
+volatile uint8_t adc_data_ready = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
@@ -128,13 +134,15 @@ int oscillate_value();
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
 void updateTelemetry();
-void updateButtons();
+void updateUserInput();
 void send_to_nextion(const char *var_name, int value);
 void send__char_to_nextion(const char *var_name, char *value);
-
+void read_hall_sensors();
 int32_t map_rpmbar(int32_t input, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max);
 const char* map_gear(int value);
 char* int_to_string(int value);
+void Start_ADC_DMA();
+uint8_t map_hall_sensor(uint16_t adc_value);
 /* USER CODE END 0 */
 
 /**
@@ -166,6 +174,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CAN_Init();
   MX_USART1_UART_Init();
   MX_ADC1_Init();
@@ -185,12 +194,14 @@ int main(void)
 	telemetry_data.tPitLim = 0;
 	telemetry_data.tFuel = 0;
 	telemetry_data.tBrakeBias = 0;
+
+	Start_ADC_DMA();
   while (1)
   {
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 
 	  updateTelemetry();
-	  updateButtons();
+	  updateUserInput();
 
 	  CAN_Transmit();
 
@@ -270,12 +281,12 @@ static void MX_ADC1_Init(void)
   /** Common config
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.NbrOfConversion = 4;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -285,7 +296,34 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_55CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -373,6 +411,22 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
@@ -548,9 +602,13 @@ char* int_to_string(int value) {
     return string;
 }
 
-void updateButtons() {
+void updateUserInput() {
 	user_input_data.buttons = 0; // Clear all bits initially
-
+	user_input_data.encoder_1 = 0;
+	user_input_data.encoder_2 = 0;
+	user_input_data.encoder_3 = 0;
+	user_input_data.hall_analog_1 = 0;
+	user_input_data.hall_analog_2 = 0;
 	// Buttons
 	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_1_PIN)) user_input_data.buttons |= (1 << 0);
 	if (!HAL_GPIO_ReadPin(GPIOA, BUTTON_2_PIN)) user_input_data.buttons |= (1 << 1);
@@ -563,6 +621,10 @@ void updateButtons() {
 	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_9_PIN)) user_input_data.buttons |= (1 << 8);
 	if (!HAL_GPIO_ReadPin(GPIOB, BUTTON_10_PIN)) user_input_data.buttons |= (1 << 9);
 
+	if(adc_data_ready) {
+		processADC();
+	}
+
 //	// Encoders
 //	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_A)) user_input_data.buttons |= (1 << 10);
 //	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
@@ -572,28 +634,34 @@ void updateButtons() {
 //	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
 }
 
-void read_hall_sensors(user_input_data_t *data) {
-    uint32_t adc_value_1 = 0, adc_value_2 = 0;
-
-    // Start ADC conversions (assumes ADC1 is configured)
-    HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
-        adc_value_1 = HAL_ADC_GetValue(&hadc1); // Read first hall sensor
-    }
-    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
-        adc_value_2 = HAL_ADC_GetValue(&hadc1); // Read second hall sensor
-    }
-    HAL_ADC_Stop(&hadc1);
-
-    // Map 12-bit ADC values (0-4095) to 8-bit range (0-255)
-    data->hall_analog_1 = (adc_value_1 * 255) / 4095;
-    data->hall_analog_2 = (adc_value_2 * 255) / 4095;
-
-    // Optionally set the hall sensor button bits (bit 10 and 11)
-    if (data->hall_analog_1 > 3.8) data->buttons |= (1 << 10);
-    if (data->hall_analog_2 > 3.8) data->buttons |= (1 << 11);
-
+void Start_ADC_DMA() {
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_values, ADC_CHANNEL_COUNT);
 }
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+    if (hadc->Instance == ADC1) {
+        adc_data_ready = 1;  // Set flag (do NOT process here)
+    }
+}
+
+void processADC() {
+	adc_data_ready = 0;
+
+	// Convert ADC values to 8-bit format
+	user_input_data.hall_analog_1 = map_hall_sensor(adc_values[2]);
+	user_input_data.hall_analog_2 = map_hall_sensor(adc_values[3]);
+
+	// Process hall button thresholds
+	if (adc_values[0] > 2200) user_input_data.buttons |= (1 << 10);
+	if (adc_values[1] > 2200) user_input_data.buttons |= (1 << 11);
+}
+uint8_t map_hall_sensor(uint16_t adc_value) {
+    if (adc_value < ADC_REST) adc_value = ADC_REST;
+    if (adc_value > ADC_MAX) adc_value = ADC_MAX;
+
+    return (uint8_t)(((adc_value - ADC_REST) * 255) / (ADC_MAX - ADC_REST));
+}
+
 /*
  * CAN BUS FUNCTIONS
  */

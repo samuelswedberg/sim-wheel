@@ -72,7 +72,7 @@ void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms
 void CAN_Transmit();
 void Read_ADC_Value();
 void Read_Potentiometers();
-uint8_t map_adc_to_8bit(uint16_t adc_value);
+uint8_t map_hall_sensor(uint16_t adc_value);
 /* USER CODE END 0 */
 
 /**
@@ -395,12 +395,12 @@ void Read_ADC_Value() {
 
 void Read_Potentiometers() {
 	Read_ADC_Value();
-	pedal_data.encoder_1 = map_adc_to_8bit(adc_values[0]);  // Read PA0 (ADC1_IN0)
-	pedal_data.encoder_2 = map_adc_to_8bit(adc_values[1]);  // Read PA1 (ADC1_IN1)
-	pedal_data.encoder_3 = map_adc_to_8bit(adc_values[2]);  // Read PA2 (ADC1_IN2)
+	pedal_data.encoder_1 = map_hall_sensor(adc_values[0]);  // Read PA0 (ADC1_IN0)
+	pedal_data.encoder_2 = map_hall_sensor(adc_values[1]);  // Read PA1 (ADC1_IN1)
+	pedal_data.encoder_3 = map_hall_sensor(adc_values[2]);  // Read PA2 (ADC1_IN2)
 }
 
-uint8_t map_adc_to_8bit(uint16_t adc_value) {
+uint8_t map_hall_sensor(uint16_t adc_value) {
     if (adc_value > 4000) adc_value = 4000;  // Ensure it stays within range
     return (uint8_t)((adc_value * 255) / 4000);
 }
