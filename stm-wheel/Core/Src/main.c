@@ -29,7 +29,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-typedef struct __attribute__((packed)){
+typedef struct __attribute__((packed, aligned(1))){
 	int32_t  tRpm;
 	int32_t  tGear;
 	int32_t  tSpeedKmh;
@@ -44,7 +44,7 @@ typedef struct __attribute__((packed)){
 
 telemetry_packet telemetry_data;
 
-typedef struct __attribute__((__packed__)) {
+typedef struct __attribute__((packed, aligned(1))) {
     uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
     uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
     uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)

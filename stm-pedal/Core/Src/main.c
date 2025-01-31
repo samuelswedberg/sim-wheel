@@ -28,7 +28,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-typedef struct __attribute__((__packed__)) {
+typedef struct __attribute__((packed, aligned(1))) {
     int16_t encoder_1;      // First encoder value
     int16_t encoder_2;      // Second encoder value
     int16_t encoder_3;      // Third encoder value
