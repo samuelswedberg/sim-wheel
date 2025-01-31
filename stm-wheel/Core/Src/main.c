@@ -317,11 +317,11 @@ static void MX_CAN_Init(void)
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 3;
+  hcan.Init.Prescaler = 1;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_8TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_3TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_5TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
@@ -663,7 +663,11 @@ void CAN_Transmit() {
 
 				// Optionally log the state of CAN error counters
 				uint32_t error = HAL_CAN_GetError(&hcan);
-				printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+		        HAL_CAN_Stop(&hcan);  // Stop CAN
+		        HAL_CAN_Start(&hcan); // Restart CAN
+
+		        // Optional: Clear error flags
+		        __HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
 			}
 			lastSendTime = currentTime;  // Update last transmission time
 			HAL_Delay(1);
