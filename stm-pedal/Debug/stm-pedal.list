@@ -637,12 +637,12 @@ void CAN_Transmit() {
  800044a:	f000 fb47 	bl	8000adc <HAL_GetTick>
  800044e:	6438      	str	r0, [r7, #64]	@ 0x40
 
-	if(currentTime - lastSendTime >= 20) {
+	if(currentTime - lastSendTime >= 37) {
  8000450:	4b38      	ldr	r3, [pc, #224]	@ (8000534 <CAN_Transmit+0xf0>)
  8000452:	681b      	ldr	r3, [r3, #0]
  8000454:	6c3a      	ldr	r2, [r7, #64]	@ 0x40
  8000456:	1ad3      	subs	r3, r2, r3
- 8000458:	2b13      	cmp	r3, #19
+ 8000458:	2b24      	cmp	r3, #36	@ 0x24
  800045a:	d966      	bls.n	800052a <CAN_Transmit+0xe6>
 		CAN_TxHeaderTypeDef TxHeader;
 		uint32_t TxMailbox;
@@ -849,32 +849,32 @@ void Read_Potentiometers() {
  80005a2:	af00      	add	r7, sp, #0
 	Read_ADC_Value();
  80005a4:	f7ff ffd4 	bl	8000550 <Read_ADC_Value>
-	pedal_data.encoder_1 = map_adc_to_8bit(adc_values[0]);  // Read PA0 (ADC1_IN0)
+	pedal_data.encoder_1 = map_hall_sensor(adc_values[0]);  // Read PA0 (ADC1_IN0)
  80005a8:	4b0f      	ldr	r3, [pc, #60]	@ (80005e8 <Read_Potentiometers+0x48>)
  80005aa:	681b      	ldr	r3, [r3, #0]
  80005ac:	b29b      	uxth	r3, r3
  80005ae:	4618      	mov	r0, r3
- 80005b0:	f000 f81e 	bl	80005f0 <map_adc_to_8bit>
+ 80005b0:	f000 f81e 	bl	80005f0 <map_hall_sensor>
  80005b4:	4603      	mov	r3, r0
  80005b6:	b21a      	sxth	r2, r3
  80005b8:	4b0c      	ldr	r3, [pc, #48]	@ (80005ec <Read_Potentiometers+0x4c>)
  80005ba:	801a      	strh	r2, [r3, #0]
-	pedal_data.encoder_2 = map_adc_to_8bit(adc_values[1]);  // Read PA1 (ADC1_IN1)
+	pedal_data.encoder_2 = map_hall_sensor(adc_values[1]);  // Read PA1 (ADC1_IN1)
  80005bc:	4b0a      	ldr	r3, [pc, #40]	@ (80005e8 <Read_Potentiometers+0x48>)
  80005be:	685b      	ldr	r3, [r3, #4]
  80005c0:	b29b      	uxth	r3, r3
  80005c2:	4618      	mov	r0, r3
- 80005c4:	f000 f814 	bl	80005f0 <map_adc_to_8bit>
+ 80005c4:	f000 f814 	bl	80005f0 <map_hall_sensor>
  80005c8:	4603      	mov	r3, r0
  80005ca:	b21a      	sxth	r2, r3
  80005cc:	4b07      	ldr	r3, [pc, #28]	@ (80005ec <Read_Potentiometers+0x4c>)
  80005ce:	805a      	strh	r2, [r3, #2]
-	pedal_data.encoder_3 = map_adc_to_8bit(adc_values[2]);  // Read PA2 (ADC1_IN2)
+	pedal_data.encoder_3 = map_hall_sensor(adc_values[2]);  // Read PA2 (ADC1_IN2)
  80005d0:	4b05      	ldr	r3, [pc, #20]	@ (80005e8 <Read_Potentiometers+0x48>)
  80005d2:	689b      	ldr	r3, [r3, #8]
  80005d4:	b29b      	uxth	r3, r3
  80005d6:	4618      	mov	r0, r3
- 80005d8:	f000 f80a 	bl	80005f0 <map_adc_to_8bit>
+ 80005d8:	f000 f80a 	bl	80005f0 <map_hall_sensor>
  80005dc:	4603      	mov	r3, r0
  80005de:	b21a      	sxth	r2, r3
  80005e0:	4b02      	ldr	r3, [pc, #8]	@ (80005ec <Read_Potentiometers+0x4c>)
@@ -885,9 +885,9 @@ void Read_Potentiometers() {
  80005e8:	200000e8 	.word	0x200000e8
  80005ec:	20000084 	.word	0x20000084
 
-080005f0 <map_adc_to_8bit>:
+080005f0 <map_hall_sensor>:
 
-uint8_t map_adc_to_8bit(uint16_t adc_value) {
+uint8_t map_hall_sensor(uint16_t adc_value) {
  80005f0:	b480      	push	{r7}
  80005f2:	b083      	sub	sp, #12
  80005f4:	af00      	add	r7, sp, #0
@@ -896,7 +896,7 @@ uint8_t map_adc_to_8bit(uint16_t adc_value) {
     if (adc_value > 4000) adc_value = 4000;  // Ensure it stays within range
  80005fa:	88fb      	ldrh	r3, [r7, #6]
  80005fc:	f5b3 6f7a 	cmp.w	r3, #4000	@ 0xfa0
- 8000600:	d902      	bls.n	8000608 <map_adc_to_8bit+0x18>
+ 8000600:	d902      	bls.n	8000608 <map_hall_sensor+0x18>
  8000602:	f44f 637a 	mov.w	r3, #4000	@ 0xfa0
  8000606:	80fb      	strh	r3, [r7, #6]
     return (uint8_t)((adc_value * 255) / 4000);
@@ -904,7 +904,7 @@ uint8_t map_adc_to_8bit(uint16_t adc_value) {
  800060a:	4613      	mov	r3, r2
  800060c:	021b      	lsls	r3, r3, #8
  800060e:	1a9b      	subs	r3, r3, r2
- 8000610:	4a05      	ldr	r2, [pc, #20]	@ (8000628 <map_adc_to_8bit+0x38>)
+ 8000610:	4a05      	ldr	r2, [pc, #20]	@ (8000628 <map_hall_sensor+0x38>)
  8000612:	fb82 1203 	smull	r1, r2, r2, r3
  8000616:	1212      	asrs	r2, r2, #8
  8000618:	17db      	asrs	r3, r3, #31

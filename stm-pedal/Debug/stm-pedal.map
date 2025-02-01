@@ -2483,9 +2483,9 @@ LOAD C:/ST/STM32CubeIDE_1.16.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.ext
  .text.Read_Potentiometers
                 0x080005a0       0x50 ./Core/Src/main.o
                 0x080005a0                Read_Potentiometers
- .text.map_adc_to_8bit
+ .text.map_hall_sensor
                 0x080005f0       0x3c ./Core/Src/main.o
-                0x080005f0                map_adc_to_8bit
+                0x080005f0                map_hall_sensor
  .text.Error_Handler
                 0x0800062c        0xc ./Core/Src/main.o
                 0x0800062c                Error_Handler

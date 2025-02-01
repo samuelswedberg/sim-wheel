@@ -506,6 +506,26 @@ void updateTelemetry() {
 	send__char_to_nextion("fuel", mappedFuel);
 	//send_to_nextion("gear", telemetry_data.tBrakeBias);
 
+	if(mappedRpm) {
+		free(mappedRpm);
+	}
+	// dont do gear since thats not int to string
+	if(mappedSpeed) {
+		free(mappedSpeed);
+	}
+	if(mappedHasDrs) {
+		free(mappedHasDrs);
+	}
+	if(mappedPitLim) {
+		free(mappedPitLim);
+	}
+	if(mappedFuel) {
+		free(mappedFuel);
+	}
+	if(mappedBrakeBias) {
+		free(mappedBrakeBias);
+	}
+
 }
 
 void send_int_to_nextion(const char *var_name, int value) {
@@ -589,17 +609,19 @@ const char* map_gear(int value)  {
 }
 
 char* int_to_string(int value) {
-    int buffer_size = snprintf(NULL, 0, "%d", value) + 1;
+    // Determine required buffer size (including null terminator)
+    size_t buffer_size = snprintf(NULL, 0, "%d", value) + 1;
 
+    // Allocate memory
     char *string = (char*)malloc(buffer_size);
-
-    if (string == NULL) {
-        return NULL;
+    if (!string) {
+        return NULL;  // Return NULL if allocation fails
     }
 
+    // Format the integer into the allocated string
     snprintf(string, buffer_size, "%d", value);
 
-    return string;
+    return string;  // Caller must free() this memory
 }
 
 void updateUserInput() {
@@ -668,7 +690,7 @@ uint8_t map_hall_sensor(uint16_t adc_value) {
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
-	if(currentTime - lastSendTime >= 10) {
+	if(currentTime - lastSendTime >= 20) {
 		CAN_TxHeaderTypeDef TxHeader;
 		uint32_t TxMailbox;
 
@@ -735,14 +757,14 @@ void CAN_Transmit() {
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
     CAN_RxHeaderTypeDef rxHeader;
     uint8_t rxData[8]; // Max CAN frame size is 8 bytes
-
+    static uint32_t last_receive_time_1 = 0;
     // Receive the message
     if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
     	 // Check if the message ID matches 0x100
 		if (rxHeader.StdId == 0x100) {
 			static uint8_t buffer[sizeof(telemetry_packet)];
 			static uint8_t offset = 0;
-
+			last_receive_time_1 = HAL_GetTick();
 			// Copy received data into buffer
 			uint8_t bytesToCopy = (rxHeader.DLC < sizeof(telemetry_packet) - offset) ? rxHeader.DLC : sizeof(telemetry_packet) - offset;
 			memcpy(&buffer[offset], rxData, bytesToCopy);
@@ -753,6 +775,10 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 				// Copy buffer into the telemetry_packet struct
 				memcpy(&telemetry_data, buffer, sizeof(telemetry_packet));
 				offset = 0; // Reset offset for the next packet
+			}
+			if (HAL_GetTick() - last_receive_time_1 > 500) {
+				printf("CAN data timeout: Resetting buffer!\n");
+				offset = 0;  // Prevent infinite accumulation
 			}
 		}
     }

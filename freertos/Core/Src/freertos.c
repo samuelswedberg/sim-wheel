@@ -744,7 +744,8 @@ void move_to_position(uint32_t target_position) {
 void processCAN() {
     CAN_RxHeaderTypeDef rxHeader;
     uint8_t rxData[8];  // Buffer to store the received data
-
+    static uint32_t last_receive_time_1 = 0;
+    static uint32_t last_receive_time_2 = 0;
     // Optional: Check FIFO1 if used
     while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
         if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
@@ -766,6 +767,11 @@ void processCAN() {
 					memcpy(&user_input_data, buffer, sizeof(user_input_data_t));
 					offset = 0; // Reset offset for the next packet
 					gDebugCounter1++;
+					last_receive_time_1 = HAL_GetTick();
+				}
+				if (HAL_GetTick() - last_receive_time_1 > 500) {
+					printf("CAN data timeout: Resetting buffer!\n");
+					offset = 0;  // Prevent infinite accumulation
 				}
 			}
             else if (rxHeader.StdId == 0x102) {
@@ -783,6 +789,11 @@ void processCAN() {
 					memcpy(&pedal_data, buffer, sizeof(pedal_data_t));
 					offset = 0; // Reset offset for the next packet
 					gDebugCounter2++;
+					last_receive_time_2 = HAL_GetTick();
+				}
+				if (HAL_GetTick() - last_receive_time_2 > 500) {
+					printf("CAN data timeout: Resetting buffer!\n");
+					offset = 0;  // Prevent infinite accumulation
 				}
 			}
 

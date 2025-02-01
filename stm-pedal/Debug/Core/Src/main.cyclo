@@ -6,5 +6,5 @@
 ../Core/Src/main.c:326:6:CAN_Transmit	7
 ../Core/Src/main.c:385:6:Read_ADC_Value	2
 ../Core/Src/main.c:396:6:Read_Potentiometers	1
-../Core/Src/main.c:403:9:map_adc_to_8bit	2
+../Core/Src/main.c:403:9:map_hall_sensor	2
 ../Core/Src/main.c:413:6:Error_Handler	1

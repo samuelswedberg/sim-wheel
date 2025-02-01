@@ -6,5 +6,5 @@
 ../Core/Src/main.c:326:6:CAN_Transmit	80	static
 ../Core/Src/main.c:385:6:Read_ADC_Value	16	static
 ../Core/Src/main.c:396:6:Read_Potentiometers	8	static
-../Core/Src/main.c:403:9:map_adc_to_8bit	16	static
+../Core/Src/main.c:403:9:map_hall_sensor	16	static
 ../Core/Src/main.c:413:6:Error_Handler	4	static,ignoring_inline_asm

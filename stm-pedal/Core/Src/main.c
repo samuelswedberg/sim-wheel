@@ -326,7 +326,7 @@ static void MX_GPIO_Init(void)
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
-	if(currentTime - lastSendTime >= 20) {
+	if(currentTime - lastSendTime >= 37) {
 		CAN_TxHeaderTypeDef TxHeader;
 		uint32_t TxMailbox;
 

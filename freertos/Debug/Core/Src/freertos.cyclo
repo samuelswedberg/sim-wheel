@@ -27,4 +27,4 @@
 ../Core/Src/freertos.c:698:6:motor_rotate_right	3
 ../Core/Src/freertos.c:717:7:read_hall_sensor	2
 ../Core/Src/freertos.c:727:6:move_to_position	3
-../Core/Src/freertos.c:744:6:processCAN	7
+../Core/Src/freertos.c:744:6:processCAN	9
