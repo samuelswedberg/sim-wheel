@@ -45,12 +45,9 @@ typedef struct __attribute__((packed, aligned(1))){
 telemetry_packet telemetry_data;
 
 typedef struct __attribute__((packed, aligned(1))) {
-    uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
+    uint32_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
     uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
     uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)
-    int16_t encoder_1;      // First encoder value
-    int16_t encoder_2;      // Second encoder value
-    int16_t encoder_3;      // Third encoder value
 } user_input_data_t;
 
 user_input_data_t user_input_data;
@@ -75,12 +72,12 @@ user_input_data_t user_input_data;
 #define HALL_ANALOG_1_PIN GPIO_PIN_15 // PA2
 #define HALL_ANALOG_2_PIN GPIO_PIN_14 // PA3
 
-#define L_ENC_PIN_A GPIO_PIN_7
-#define L_ENC_PIN_B GPIO_PIN_6
-#define C_ENC_PIN_A GPIO_PIN_4
-#define C_ENC_PIN_B GPIO_PIN_5
-#define R_ENC_PIN_A GPIO_PIN_3
-#define R_ENC_PIN_B GPIO_PIN_15
+#define L_ENC_PIN_CLK GPIO_PIN_7 // PB7
+#define L_ENC_PIN_DT GPIO_PIN_6 // PB6
+#define C_ENC_PIN_CLK GPIO_PIN_5 // PB5
+#define C_ENC_PIN_DT GPIO_PIN_4 // PB4
+#define R_ENC_PIN_CLK GPIO_PIN_3 // PB3
+#define R_ENC_PIN_DT GPIO_PIN_15 // PA15
 
 #define NEOPIXEL_PIN GPIO_PIN_8
 
@@ -110,10 +107,15 @@ int direction = 1; // 1 for increasing, -1 for decreasing
 int step = 1;      // Increment/Decrement step
 int delay_ms = 25; // Delay between updates
 
+int enc_l_flag = 0;
+int enc_c_flag = 0;
+int enc_r_flag = 0;
+
 uint32_t lastSendTime = 0;
 uint16_t adc_values[ADC_CHANNEL_COUNT];
 
 volatile uint8_t adc_data_ready = 0;
+volatile uint32_t last_enc_interrupt_time = 0;
 
 /* USER CODE END PV */
 
@@ -457,19 +459,36 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA4 PA5 PA6 PA7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+  /*Configure GPIO pins : PA4 PA5 PA6 PA7
+                           PA15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
+                          |GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PB0 PB1 PB2 PB10
-                           PB11 PB8 PB9 */
+                           PB11 PB4 PB6 PB8
+                           PB9 */
   GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_10
-                          |GPIO_PIN_11|GPIO_PIN_8|GPIO_PIN_9;
+                          |GPIO_PIN_11|GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_8
+                          |GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB3 PB5 PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_5|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -626,9 +645,6 @@ char* int_to_string(int value) {
 
 void updateUserInput() {
 	user_input_data.buttons = 0; // Clear all bits initially
-	user_input_data.encoder_1 = 0;
-	user_input_data.encoder_2 = 0;
-	user_input_data.encoder_3 = 0;
 	user_input_data.hall_analog_1 = 0;
 	user_input_data.hall_analog_2 = 0;
 	// Buttons
@@ -647,13 +663,16 @@ void updateUserInput() {
 		processADC();
 	}
 
-//	// Encoders
-//	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_A)) user_input_data.buttons |= (1 << 10);
-//	if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
-//	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
-//	if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_B)) user_input_data.buttons |= (1 << 10);
-//	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_A)) user_input_data.buttons |= (1 << 11);
-//	if (HAL_GPIO_ReadPin(GPIOB, R_ENC_PIN_B)) user_input_data.buttons |= (1 << 11);
+	if (enc_l_flag == 1) user_input_data.buttons |= (1 << 12);
+	if (enc_l_flag == -1) user_input_data.buttons |= (1 << 13);
+	if (enc_c_flag == 1) user_input_data.buttons |= (1 << 14);
+	if (enc_c_flag == -1) user_input_data.buttons |= (1 << 15);
+	if (enc_r_flag == 1) user_input_data.buttons |= (1 << 16);
+	if (enc_r_flag == -1) user_input_data.buttons |= (1 << 17);
+
+	enc_l_flag = 0;
+	enc_c_flag = 0;
+	enc_r_flag = 0;
 }
 
 void Start_ADC_DMA() {
@@ -782,6 +801,33 @@ void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 			}
 		}
     }
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	uint32_t current_time = HAL_GetTick();  // Get system time in ms
+	if (current_time - last_enc_interrupt_time < 250) return;  // Debounce (5ms)
+	last_enc_interrupt_time = current_time;
+    if (GPIO_Pin == L_ENC_PIN_CLK) {
+        if (HAL_GPIO_ReadPin(GPIOB, L_ENC_PIN_DT) == GPIO_PIN_SET) {
+        	enc_l_flag = 1;
+        } else {
+        	enc_l_flag = -1;
+        }
+    }
+    if (GPIO_Pin == C_ENC_PIN_CLK) {
+		if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_DT) == GPIO_PIN_SET) {
+			enc_c_flag = 1;
+		} else {
+			enc_c_flag = -1;
+		}
+	}
+    if (GPIO_Pin == R_ENC_PIN_CLK) {
+		if (HAL_GPIO_ReadPin(GPIOA, R_ENC_PIN_DT) == GPIO_PIN_SET) {
+			enc_r_flag = 1;
+		} else {
+			enc_r_flag = -1;
+		}
+	}
 }
 /* USER CODE END 4 */
 

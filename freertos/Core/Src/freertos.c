@@ -72,12 +72,9 @@ typedef struct __attribute__((packed)){
 HIDReport_t HIDReport;
 
 typedef struct __attribute__((packed, aligned(1))) {
-    uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
+    uint32_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
     uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
     uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)
-    int16_t encoder_1;      // First encoder value
-    int16_t encoder_2;      // Second encoder value
-    int16_t encoder_3;      // Third encoder value
 } user_input_data_t;
 
 user_input_data_t user_input_data;
@@ -440,8 +437,8 @@ void runReport() {
 
 	HIDReport.buttons = user_input_data.buttons;
 
-	HIDReport.rz = (uint8_t) (user_input_data.encoder_1 & 0xFF);
-	HIDReport.slider = (uint8_t) (user_input_data.encoder_2 & 0xFF);
+//	HIDReport.rz = (uint8_t) (user_input_data.encoder_1 & 0xFF);
+//	HIDReport.slider = (uint8_t) (user_input_data.encoder_2 & 0xFF);
 
 	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
 }
