@@ -53,6 +53,7 @@ typedef struct __attribute__((packed)){
 	int32_t  tPitLim;
 	int32_t  tFuel;
 	int32_t  tBrakeBias;
+	int32_t  tMaxRpm;
 	float   tForceFB;
 } telemetry_packet;
 
@@ -70,21 +71,21 @@ typedef struct __attribute__((packed)){
 
 HIDReport_t HIDReport;
 
-typedef struct __attribute__((__packed__)) {
-    uint16_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
+typedef struct __attribute__((packed, aligned(1))) {
+    uint32_t buttons;       // 10 physical buttons + 2 hall sensor buttons (12 total, packed into 16 bits)
     uint8_t hall_analog_1;  // First hall sensor analog value (0-255)
     uint8_t hall_analog_2;  // Second hall sensor analog value (0-255)
-    int16_t encoder_1;      // First encoder value
-    int16_t encoder_2;      // Second encoder value
-    int16_t encoder_3;      // Third encoder value
 } user_input_data_t;
 
-typedef struct __attribute__((__packed__)) {
+user_input_data_t user_input_data;
+
+typedef struct __attribute__((packed, aligned(1))) {
     int16_t encoder_1;      // First encoder value
     int16_t encoder_2;      // Second encoder value
     int16_t encoder_3;      // Third encoder value
 } pedal_data_t;
 
+pedal_data_t pedal_data;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -127,11 +128,11 @@ float max_hall_voltage = 0;
 float gHall = 0;
 uint32_t max_position = 0;
 
-user_input_data_t gUserInputData;
-pedal_data_t gPedalData;
-
 int gDebugCounter1 = 0;
 int gDebugCounter2 = 0;
+
+uint32_t can_error = 0;
+
 /*
  * Default strength is 0.5 (results in bell curve feedback)
  * Over drive would be greater than 0.5
@@ -418,13 +419,27 @@ void DWT_Delay_us(uint32_t us) {
 }
 
 void runReport() {
-	HIDReport.steering = gSteering;        // Steering data (0-255)
-	HIDReport.throttle = gAccel;        // Throttle data (0-255)
-	HIDReport.brake = gBrake;           // Brake data (0-255)
-	HIDReport.clutch = 0;         // Clutch data (0-255)
-	HIDReport.buttons = 0;   // Each bit represents a button'
-	HIDReport.rz = 0;
-	HIDReport.slider = 0;
+	memset(&HIDReport, 0, sizeof(HIDReport_t));
+
+	uint16_t max_clutch = pedal_data.encoder_3;
+
+	if (user_input_data.hall_analog_1 > max_clutch) {
+		max_clutch = user_input_data.hall_analog_1;
+	}
+	if (user_input_data.hall_analog_1 > max_clutch) {
+		max_clutch = user_input_data.hall_analog_1;
+	}
+
+	HIDReport.steering = gSteering;
+	HIDReport.throttle = pedal_data.encoder_1;
+	HIDReport.brake = pedal_data.encoder_2;
+	HIDReport.clutch = max_clutch;
+
+	HIDReport.buttons = user_input_data.buttons;
+
+//	HIDReport.rz = (uint8_t) (user_input_data.encoder_1 & 0xFF);
+//	HIDReport.slider = (uint8_t) (user_input_data.encoder_2 & 0xFF);
+
 	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
 }
 
@@ -472,8 +487,13 @@ void runCAN() {
 	        }
 
 	        // Optionally log the state of CAN error counters
-	        uint32_t error = HAL_CAN_GetError(&hcan1);
-	        printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
+	        can_error = HAL_CAN_GetError(&hcan1);
+
+	        HAL_CAN_Stop(&hcan1);  // Stop CAN
+	        HAL_CAN_Start(&hcan1); // Restart CAN
+
+	        // Optional: Clear error flags
+	        __HAL_CAN_CLEAR_FLAG(&hcan1, CAN_FLAG_ERRI);
 	    }
 	    HAL_Delay(1);
 	}
@@ -718,29 +738,11 @@ void move_to_position(uint32_t target_position) {
     set_motor_pwm(0);
 }
 
-//void RxCAN(CAN_HandleTypeDef *hcan) {
-//	CAN_RxHeaderTypeDef rxHeader;
-//	uint8_t rxData[8];
-//
-//	if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, rxData) == HAL_OK) {
-//		if (rxHeader.StdId == 0x001) {
-//			// Process message from Wheel Node
-//			printf("Received from Wheel: %02X %02X %02X %02X\n",
-//				   rxData[0], rxData[1], rxData[2], rxData[3]);
-//		} else if (rxHeader.StdId == 0x002) {
-//			// Process message from Pedal Node
-//			printf("Received from Pedals: %02X %02X %02X %02X\n",
-//				   rxData[0], rxData[1], rxData[2], rxData[3]);
-//		}
-//	} else {
-//		printf("Failed to receive CAN message\n");
-//	}
-//}
-
 void processCAN() {
     CAN_RxHeaderTypeDef rxHeader;
     uint8_t rxData[8];  // Buffer to store the received data
-
+    static uint32_t last_receive_time_1 = 0;
+    static uint32_t last_receive_time_2 = 0;
     // Optional: Check FIFO1 if used
     while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
         if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
@@ -759,11 +761,14 @@ void processCAN() {
 				// Check if the entire packet has been received
 				if (offset >= sizeof(user_input_data_t)) {
 					// Copy buffer into the telemetry_packet struct
-					memcpy(&gUserInputData, buffer, sizeof(user_input_data_t));
+					memcpy(&user_input_data, buffer, sizeof(user_input_data_t));
 					offset = 0; // Reset offset for the next packet
 					gDebugCounter1++;
-					// Process the received telemetry data
-//					ProcessTelemetryData(&gReceivedTelemetry);
+					last_receive_time_1 = HAL_GetTick();
+				}
+				if (HAL_GetTick() - last_receive_time_1 > 500) {
+					printf("CAN data timeout: Resetting buffer!\n");
+					offset = 0;  // Prevent infinite accumulation
 				}
 			}
             else if (rxHeader.StdId == 0x102) {
@@ -778,11 +783,14 @@ void processCAN() {
 				// Check if the entire packet has been received
 				if (offset >= sizeof(pedal_data_t)) {
 					// Copy buffer into the telemetry_packet struct
-					memcpy(&gPedalData, buffer, sizeof(pedal_data_t));
+					memcpy(&pedal_data, buffer, sizeof(pedal_data_t));
 					offset = 0; // Reset offset for the next packet
 					gDebugCounter2++;
-					// Process the received telemetry data
-//					ProcessTelemetryData(&gReceivedTelemetry);
+					last_receive_time_2 = HAL_GetTick();
+				}
+				if (HAL_GetTick() - last_receive_time_2 > 500) {
+					printf("CAN data timeout: Resetting buffer!\n");
+					offset = 0;  // Prevent infinite accumulation
 				}
 			}
 

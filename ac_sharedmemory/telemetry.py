@@ -4,31 +4,16 @@ import time
 import json
 import struct 
 
-STRUCT_FORMAT = "<8i1f"
+STRUCT_FORMAT = "<9i1f" # <#i1f the # is the number of items - 1
 PORT = "COM10"
 BAUDRATE = 115200
 STRUCT_SIZE = struct.calcsize(STRUCT_FORMAT)
 
 ASM = accSharedMemory()
 
-# def send_json_data():
-#     """Function to send data to usart."""
-#     data = {
-#     "rpm": sm.Physics.rpm,
-#     "gear": sm.Physics.gear,
-#     "speedKmh": int(sm.Physics.speed_kmh),
-#     "hasDRS": int(sm.Static.hasDRS),
-#     "drs": int(sm.Physics.drs),
-#     "pitLim": int(sm.Physics.pit_limiter_on),
-#     "fuel": int(sm.Physics.fuel),
-#     "brakeBias": int(sm.Physics.brake_bias),
-#     "forceFB": round(sm.Physics.final_ff, 2)
-#     }
-#     # serialize the dictionary to a JSON string
-#     json_data = json.dumps(data) + '\n'  # Add a newline for message termination
-#     # Send the JSON string over UART
-#     ser.write(json_data.encode('utf-8'))  # Encode to bytes
-        
+"""
+Steering Wheel Wheel Telemetry Data
+"""
 def send_telemetry(sm, ser):
     """Function to send data to usart."""
     data = {
@@ -40,6 +25,7 @@ def send_telemetry(sm, ser):
     "pitLim": int(sm.Physics.pit_limiter_on),
     "fuel": int(sm.Physics.fuel),
     "brakeBias": int(sm.Physics.brake_bias),
+    "maxRpm": int(sm.Static.max_rpm),
     "forceFB": round(sm.Physics.final_ff, 2)
     }
 
@@ -53,6 +39,7 @@ def send_telemetry(sm, ser):
         data["pitLim"],
         data["fuel"],
         data["brakeBias"],
+        data["maxRpm"],
         data["forceFB"]
     )
 
@@ -62,6 +49,9 @@ def send_telemetry(sm, ser):
     except serial.SerialException as e:
         print(f"Error sending data: {e}")
 
+"""
+Receives communications from the wheelbase
+"""
 def receive_data(ser):
     """Receive binary data and unpack the struct."""
     try:
@@ -80,12 +70,29 @@ def receive_data(ser):
         print(f"Received Data: {unpacked_data}")
 
     except struct.error as e:
-        print(f"Error unpacking data: {e}")
+        raise ValueError(f"Error unpacking data: {e}") from e
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        raise RuntimeError(f"Unexpected error in receive_data: {e}") from e
 
+"""
+Attempt to reconnect to the serial port
+"""
+def reconnect_serial():
+
+    while True:
+        try:
+            print("Attempting to reconnect...")
+            ser = serial.Serial(PORT, BAUDRATE, timeout=1)
+            print("Reconnected successfully.")
+            return ser
+        except serial.SerialException as e:
+            print(f"Reconnection failed: {e}")
+            time.sleep(5)  # Wait before retrying
+
+"""
+Main loop to send data and handle reconnections
+"""
 def main():
-    """Main loop to send data and handle reconnections."""
     ser = None
     while True:
         try:
@@ -96,6 +103,7 @@ def main():
                 print("Connected successfully!")
 
             sm = ASM.read_shared_memory()
+            
             if (sm is not None):
                 send_telemetry(sm, ser)
                 time.sleep(.1)
@@ -103,11 +111,11 @@ def main():
 
             # time.sleep(1)
 
-        except serial.SerialException as e:
+        except (serial.SerialException, RuntimeError) as e:
             print(f"Connection lost: {e}")
             if ser:
                 ser.close()
-                ser = None
+                ser = reconnect_serial()
 
             # Retry connection every 3 seconds
             time.sleep(3)
@@ -117,15 +125,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # try:
-    #     print("Starting memory reading")
-    #     while True:
-    #         sm = asm.read_shared_memory()
-    #         if (sm is not None):
-    #             send_telemetry()
-    #             time.sleep(.05)
-    #             receive_data()  # Continuously receive data from usart
-    # except KeyboardInterrupt:
-    #     print("Program terminated.")
-    # finally:
-    #     ser.close()

@@ -28,12 +28,13 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
-typedef struct __attribute__((__packed__)) {
+typedef struct __attribute__((packed, aligned(1))) {
     int16_t encoder_1;      // First encoder value
     int16_t encoder_2;      // Second encoder value
     int16_t encoder_3;      // Third encoder value
 } pedal_data_t;
 
+pedal_data_t pedal_data;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -47,16 +48,20 @@ typedef struct __attribute__((__packed__)) {
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
 uint32_t lastSendTime = 0;
+uint32_t adc_values[3];  // Store ADC readings for PA0, PA1, PA2
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -65,6 +70,9 @@ static void MX_CAN_Init(void);
 /* USER CODE BEGIN 0 */
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
+void Read_ADC_Value();
+void Read_Potentiometers();
+uint8_t map_hall_sensor(uint16_t adc_value);
 /* USER CODE END 0 */
 
 /**
@@ -97,6 +105,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_Start(&hcan);
 
@@ -108,6 +117,7 @@ int main(void)
   while (1)
   {
 	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
+	  Read_Potentiometers();
 	 CAN_Transmit();
 	 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
 //	 HAL_Delay(50);
@@ -126,6 +136,7 @@ void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
@@ -135,7 +146,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI_DIV2;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL2;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -150,10 +161,81 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
   {
     Error_Handler();
   }
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
+  PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV2;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Common config
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 3;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_41CYCLES_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -172,11 +254,11 @@ static void MX_CAN_Init(void)
 
   /* USER CODE END CAN_Init 1 */
   hcan.Instance = CAN1;
-  hcan.Init.Prescaler = 3;
+  hcan.Init.Prescaler = 1;
   hcan.Init.Mode = CAN_MODE_NORMAL;
   hcan.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan.Init.TimeSeg1 = CAN_BS1_8TQ;
-  hcan.Init.TimeSeg2 = CAN_BS2_3TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_5TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan.Init.TimeTriggeredMode = DISABLE;
   hcan.Init.AutoBusOff = DISABLE;
   hcan.Init.AutoWakeUp = DISABLE;
@@ -240,50 +322,19 @@ static void MX_GPIO_Init(void)
 /*
  * CAN BUS FUNCTIONS
  */
-//void CAN_Transmit() {
-//	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-//
-//    CAN_TxHeaderTypeDef txHeader;
-//    uint32_t txMailbox;
-//    uint8_t data[8] = {10, 20, 30, 40, 50, 60, 70, 80}; // Example data
-//
-//	txHeader.StdId = 0x002;
-//	txHeader.ExtId = 0;
-//	txHeader.IDE = CAN_ID_STD;
-//	txHeader.RTR = CAN_RTR_DATA;
-//	txHeader.DLC = 8;
-//
-//    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &txHeader, data, &txMailbox);
-//	if (status != HAL_OK) {
-//		// Inspect the error
-//		if (status == HAL_ERROR) {
-//			printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-//		} else if (status == HAL_BUSY) {
-//			printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-//		} else if (status == HAL_TIMEOUT) {
-//			printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-//		}
-//
-//		// Optionally log the state of CAN error counters
-//		uint32_t error = HAL_CAN_GetError(&hcan);
-//		printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
-//	}
-//
-//	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
-//}
 
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
-	if(currentTime - lastSendTime >= 20) {
+	if(currentTime - lastSendTime >= 37) {
 		CAN_TxHeaderTypeDef TxHeader;
 		uint32_t TxMailbox;
 
 		// Create a telemetry_packet instance and initialize its fields
-		pedal_data_t dataToSend;
-		dataToSend.encoder_1 = 1234;         // Example: Encoder 1 value
-		dataToSend.encoder_2 = -2234;        // Example: Encoder 2 value
-		dataToSend.encoder_3 = 5234;         // Example: Encoder 3 value
+		pedal_data_t dataToSend = pedal_data;
+//		dataToSend.encoder_1 = 1234;         // Example: Encoder 1 value
+//		dataToSend.encoder_2 = -2234;        // Example: Encoder 2 value
+//		dataToSend.encoder_3 = 5234;         // Example: Encoder 3 value
 
 		uint8_t* rawData = (uint8_t*)&dataToSend;
 
@@ -331,6 +382,28 @@ void CAN_Transmit() {
 	}
 }
 
+void Read_ADC_Value() {
+    HAL_ADC_Start(&hadc1);
+
+    for (int i = 0; i < 3; i++) {
+        HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+        adc_values[i] = HAL_ADC_GetValue(&hadc1);
+    }
+
+    HAL_ADC_Stop(&hadc1);
+}
+
+void Read_Potentiometers() {
+	Read_ADC_Value();
+	pedal_data.encoder_1 = map_hall_sensor(adc_values[0]);  // Read PA0 (ADC1_IN0)
+	pedal_data.encoder_2 = map_hall_sensor(adc_values[1]);  // Read PA1 (ADC1_IN1)
+	pedal_data.encoder_3 = map_hall_sensor(adc_values[2]);  // Read PA2 (ADC1_IN2)
+}
+
+uint8_t map_hall_sensor(uint16_t adc_value) {
+    if (adc_value > 4000) adc_value = 4000;  // Ensure it stays within range
+    return (uint8_t)((adc_value * 255) / 4000);
+}
 /* USER CODE END 4 */
 
 /**
