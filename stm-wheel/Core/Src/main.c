@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -100,6 +101,9 @@ CAN_HandleTypeDef hcan;
 
 UART_HandleTypeDef huart1;
 
+osThreadId defaultTaskHandle;
+osThreadId nextionTaskHandle;
+osThreadId canTaskHandle;
 /* USER CODE BEGIN PV */
 // Oscillation state variables
 int value = 0;
@@ -126,6 +130,10 @@ static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
+void StartDefaultTask(void const * argument);
+void startNextionTask(void const * argument);
+void startCanTask(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -186,8 +194,47 @@ int main(void)
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
   /* USER CODE END 2 */
 
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of nextionTask */
+  osThreadDef(nextionTask, startNextionTask, osPriorityAboveNormal, 0, 192);
+  nextionTaskHandle = osThreadCreate(osThread(nextionTask), NULL);
+
+  /* definition and creation of canTask */
+  osThreadDef(canTask, startCanTask, osPriorityHigh, 0, 192);
+  canTaskHandle = osThreadCreate(osThread(canTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  vTaskStartScheduler();
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
 	telemetry_data.tRpm = 0;
 	telemetry_data.tRpm = 0;
@@ -201,16 +248,7 @@ int main(void)
 	Start_ADC_DMA();
   while (1)
   {
-	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 
-	  updateTelemetry();
-	  updateUserInput();
-
-	  CAN_Transmit();
-
-	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
-	  // Wait for the specified delay
-//	  HAL_Delay(5);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -428,7 +466,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
@@ -485,10 +523,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -707,76 +745,10 @@ uint8_t map_hall_sensor(uint16_t adc_value) {
 /*
  * CAN BUS FUNCTIONS
  */
-//void CAN_Transmit() {
-//	uint32_t currentTime = HAL_GetTick();
-//
-//	if(currentTime - lastSendTime >= 20) {
-//		CAN_TxHeaderTypeDef TxHeader;
-//		uint32_t TxMailbox;
-//
-//		// Create a telemetry_packet instance and initialize its fields
-//		user_input_data_t dataToSend = user_input_data;
-////		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
-////		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
-////		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
-////		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
-////		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
-////		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
-//
-//		uint8_t* rawData = (uint8_t*)&dataToSend;
-//
-//		// Initialize CAN Header
-//		TxHeader.StdId = 0x101;           // CAN ID for the message
-//		TxHeader.ExtId = 0;
-//		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-//		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-//		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
-//
-//		uint8_t frameData[8];             // Temporary buffer for each CAN frame
-//
-//		// Calculate the size of the telemetry_packet struct
-//		int totalSize = sizeof(user_input_data_t);
-//
-//		// Split the telemetry_packet into CAN frames
-//		for (int i = 0; i < totalSize; i += 8) {
-//			// Calculate the size of the current chunk (for the last frame)
-//			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
-//
-//			// Copy the next chunk of data into the frame buffer
-//			memcpy(frameData, &rawData[i], chunkSize);
-//
-//			// Adjust DLC for the last frame
-//			TxHeader.DLC = chunkSize;
-//
-//			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
-//			if (status != HAL_OK) {
-//				// Inspect the error
-//				if (status == HAL_ERROR) {
-//					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-//				} else if (status == HAL_BUSY) {
-//					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-//				} else if (status == HAL_TIMEOUT) {
-//					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-//				}
-//
-//				// Optionally log the state of CAN error counters
-//				uint32_t error = HAL_CAN_GetError(&hcan);
-//		        HAL_CAN_Stop(&hcan);  // Stop CAN
-//		        HAL_CAN_Start(&hcan); // Restart CAN
-//
-//		        // Optional: Clear error flags
-//		        __HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
-//			}
-//			lastSendTime = currentTime;  // Update last transmission time
-//			HAL_Delay(1);
-//		}
-//	}
-//}
-
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
-	if(currentTime - lastSendTime >= 20) {
+	if(currentTime - lastSendTime >= 2) {
 		sendCANMessage(0x200, (int32_t)user_input_data.buttons);
 		sendCANMessage(0x201, (int32_t)user_input_data.hall_analog_1 & 0xFF);
 		sendCANMessage(0x202, (int32_t)user_input_data.hall_analog_2 & 0xFF);
@@ -875,6 +847,86 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	}
 }
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
+	  osDelay(5);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_startNextionTask */
+/**
+* @brief Function implementing the nextionTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startNextionTask */
+void startNextionTask(void const * argument)
+{
+  /* USER CODE BEGIN startNextionTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  updateTelemetry();
+	  osDelay(5);
+  }
+  /* USER CODE END startNextionTask */
+}
+
+/* USER CODE BEGIN Header_startCanTask */
+/**
+* @brief Function implementing the canTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startCanTask */
+void startCanTask(void const * argument)
+{
+  /* USER CODE BEGIN startCanTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  updateUserInput();
+	  CAN_Transmit();
+	  osDelay(5);
+  }
+  /* USER CODE END startCanTask */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM4 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM4) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

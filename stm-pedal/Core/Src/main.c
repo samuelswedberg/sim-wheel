@@ -336,7 +336,7 @@ static void MX_GPIO_Init(void)
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
-	if(currentTime - lastSendTime >= 37) {
+	if(currentTime - lastSendTime >= 2) {
 		sendCANMessage(0x300, pedal_data.encoder_1);
 		sendCANMessage(0x301, pedal_data.encoder_2);
 		sendCANMessage(0x302, pedal_data.encoder_3);

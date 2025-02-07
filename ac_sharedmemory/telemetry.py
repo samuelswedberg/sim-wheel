@@ -106,7 +106,7 @@ def main():
             
             if (sm is not None):
                 send_telemetry(sm, ser)
-                time.sleep(.1)
+                time.sleep(.001)
                 receive_data(ser)
 
             # time.sleep(1)

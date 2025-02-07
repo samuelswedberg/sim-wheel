@@ -637,12 +637,12 @@ void CAN_Transmit() {
  800044a:	f000 faeb 	bl	8000a24 <HAL_GetTick>
  800044e:	6078      	str	r0, [r7, #4]
 
-	if(currentTime - lastSendTime >= 37) {
+	if(currentTime - lastSendTime >= 2) {
  8000450:	4b13      	ldr	r3, [pc, #76]	@ (80004a0 <CAN_Transmit+0x5c>)
  8000452:	681b      	ldr	r3, [r3, #0]
  8000454:	687a      	ldr	r2, [r7, #4]
  8000456:	1ad3      	subs	r3, r2, r3
- 8000458:	2b24      	cmp	r3, #36	@ 0x24
+ 8000458:	2b01      	cmp	r3, #1
  800045a:	d91d      	bls.n	8000498 <CAN_Transmit+0x54>
 		sendCANMessage(0x300, pedal_data.encoder_1);
  800045c:	4b11      	ldr	r3, [pc, #68]	@ (80004a4 <CAN_Transmit+0x60>)
