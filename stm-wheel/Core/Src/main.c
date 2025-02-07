@@ -135,6 +135,7 @@ static void MX_ADC1_Init(void);
 int oscillate_value();
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
+void sendCANMessage(uint16_t canID, int32_t value);
 void updateTelemetry();
 void updateUserInput();
 void send_to_nextion(const char *var_name, int value);
@@ -374,7 +375,7 @@ static void MX_CAN_Init(void)
   filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
   filterConfig.FilterIdHigh = 0x100 << 5;       // Accept all IDs
-  filterConfig.FilterMaskIdHigh = 0x7FF << 5;;   // Accept all IDs
+  filterConfig.FilterMaskIdHigh = 0x700 << 5;;   // Accept all IDs
   filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;  // Assign to FIFO 1
   filterConfig.FilterActivation = ENABLE;
 
@@ -706,101 +707,145 @@ uint8_t map_hall_sensor(uint16_t adc_value) {
 /*
  * CAN BUS FUNCTIONS
  */
+//void CAN_Transmit() {
+//	uint32_t currentTime = HAL_GetTick();
+//
+//	if(currentTime - lastSendTime >= 20) {
+//		CAN_TxHeaderTypeDef TxHeader;
+//		uint32_t TxMailbox;
+//
+//		// Create a telemetry_packet instance and initialize its fields
+//		user_input_data_t dataToSend = user_input_data;
+////		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
+////		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
+////		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
+////		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
+////		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
+////		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
+//
+//		uint8_t* rawData = (uint8_t*)&dataToSend;
+//
+//		// Initialize CAN Header
+//		TxHeader.StdId = 0x101;           // CAN ID for the message
+//		TxHeader.ExtId = 0;
+//		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
+//		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
+//		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
+//
+//		uint8_t frameData[8];             // Temporary buffer for each CAN frame
+//
+//		// Calculate the size of the telemetry_packet struct
+//		int totalSize = sizeof(user_input_data_t);
+//
+//		// Split the telemetry_packet into CAN frames
+//		for (int i = 0; i < totalSize; i += 8) {
+//			// Calculate the size of the current chunk (for the last frame)
+//			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
+//
+//			// Copy the next chunk of data into the frame buffer
+//			memcpy(frameData, &rawData[i], chunkSize);
+//
+//			// Adjust DLC for the last frame
+//			TxHeader.DLC = chunkSize;
+//
+//			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
+//			if (status != HAL_OK) {
+//				// Inspect the error
+//				if (status == HAL_ERROR) {
+//					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
+//				} else if (status == HAL_BUSY) {
+//					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
+//				} else if (status == HAL_TIMEOUT) {
+//					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
+//				}
+//
+//				// Optionally log the state of CAN error counters
+//				uint32_t error = HAL_CAN_GetError(&hcan);
+//		        HAL_CAN_Stop(&hcan);  // Stop CAN
+//		        HAL_CAN_Start(&hcan); // Restart CAN
+//
+//		        // Optional: Clear error flags
+//		        __HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
+//			}
+//			lastSendTime = currentTime;  // Update last transmission time
+//			HAL_Delay(1);
+//		}
+//	}
+//}
+
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
 	if(currentTime - lastSendTime >= 20) {
-		CAN_TxHeaderTypeDef TxHeader;
-		uint32_t TxMailbox;
+		sendCANMessage(0x200, (int32_t)user_input_data.buttons);
+		sendCANMessage(0x201, (int32_t)user_input_data.hall_analog_1 & 0xFF);
+		sendCANMessage(0x202, (int32_t)user_input_data.hall_analog_2 & 0xFF);
 
-		// Create a telemetry_packet instance and initialize its fields
-		user_input_data_t dataToSend = user_input_data;
-//		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
-//		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
-//		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
-//		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
-//		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
-//		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
-
-		uint8_t* rawData = (uint8_t*)&dataToSend;
-
-		// Initialize CAN Header
-		TxHeader.StdId = 0x101;           // CAN ID for the message
-		TxHeader.ExtId = 0;
-		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
-
-		uint8_t frameData[8];             // Temporary buffer for each CAN frame
-
-		// Calculate the size of the telemetry_packet struct
-		int totalSize = sizeof(user_input_data_t);
-
-		// Split the telemetry_packet into CAN frames
-		for (int i = 0; i < totalSize; i += 8) {
-			// Calculate the size of the current chunk (for the last frame)
-			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
-
-			// Copy the next chunk of data into the frame buffer
-			memcpy(frameData, &rawData[i], chunkSize);
-
-			// Adjust DLC for the last frame
-			TxHeader.DLC = chunkSize;
-
-			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
-			if (status != HAL_OK) {
-				// Inspect the error
-				if (status == HAL_ERROR) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-				} else if (status == HAL_BUSY) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-				} else if (status == HAL_TIMEOUT) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-				}
-
-				// Optionally log the state of CAN error counters
-				uint32_t error = HAL_CAN_GetError(&hcan);
-		        HAL_CAN_Stop(&hcan);  // Stop CAN
-		        HAL_CAN_Start(&hcan); // Restart CAN
-
-		        // Optional: Clear error flags
-		        __HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
-			}
-			lastSendTime = currentTime;  // Update last transmission time
-			HAL_Delay(1);
-		}
+		lastSendTime = currentTime;  // Update last transmission time
+		HAL_Delay(1);
 	}
+}
+
+
+void sendCANMessage(uint16_t canID, int32_t value) {
+    CAN_TxHeaderTypeDef TxHeader;
+    uint8_t TxData[4];  // 4-byte buffer
+
+    // Ensure correct byte order in CAN message
+    TxData[0] = (uint8_t)(value & 0xFF);
+    TxData[1] = (uint8_t)((value >> 8) & 0xFF);
+    TxData[2] = (uint8_t)((value >> 16) & 0xFF);
+    TxData[3] = (uint8_t)((value >> 24) & 0xFF);
+
+    uint32_t TxMailbox;
+
+    // Configure the CAN header
+    TxHeader.StdId = canID;  // Set the ID
+    TxHeader.IDE = CAN_ID_STD;  // Standard 11-bit ID
+    TxHeader.RTR = CAN_RTR_DATA;  // Data frame, not remote request
+    TxHeader.DLC = sizeof(value);  // Data Length = 4 bytes
+
+    // Copy integer value into TxData buffer (ensure correct byte order)
+    memcpy(TxData, &value, sizeof(value));
+
+    // Send the CAN message
+    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
+    	 // Optionally log the state of CAN error counters
+		uint32_t error = HAL_CAN_GetError(&hcan);
+		HAL_CAN_Stop(&hcan);  // Stop CAN
+		HAL_CAN_Start(&hcan); // Restart CAN
+
+		// Optional: Clear error flags
+		__HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
+    }
 }
 
 // CAN receive interrupt callback
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-    CAN_RxHeaderTypeDef rxHeader;
-    uint8_t rxData[8]; // Max CAN frame size is 8 bytes
-    static uint32_t last_receive_time_1 = 0;
-    // Receive the message
-    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
-    	 // Check if the message ID matches 0x100
-		if (rxHeader.StdId == 0x100) {
-			static uint8_t buffer[sizeof(telemetry_packet)];
-			static uint8_t offset = 0;
-			last_receive_time_1 = HAL_GetTick();
-			// Copy received data into buffer
-			uint8_t bytesToCopy = (rxHeader.DLC < sizeof(telemetry_packet) - offset) ? rxHeader.DLC : sizeof(telemetry_packet) - offset;
-			memcpy(&buffer[offset], rxData, bytesToCopy);
-			offset += bytesToCopy;
+	CAN_RxHeaderTypeDef RxHeader;
+	uint8_t RxData[8];
 
-			// Check if the entire packet has been received
-			if (offset >= sizeof(telemetry_packet)) {
-				// Copy buffer into the telemetry_packet struct
-				memcpy(&telemetry_data, buffer, sizeof(telemetry_packet));
-				offset = 0; // Reset offset for the next packet
-			}
-			if (HAL_GetTick() - last_receive_time_1 > 500) {
-				printf("CAN data timeout: Resetting buffer!\n");
-				offset = 0;  // Prevent infinite accumulation
-			}
+	while (HAL_CAN_GetRxFifoFillLevel(hcan, CAN_RX_FIFO1) > 0) {
+		HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &RxHeader, RxData);
+
+		int32_t value;
+		memcpy(&value, RxData, sizeof(value));
+
+		switch (RxHeader.StdId) {
+			// Wheelbase
+			case 0x100: telemetry_data.tRpm = value; break;
+			case 0x101: telemetry_data.tGear = value; break;
+			case 0x102: telemetry_data.tSpeedKmh = value; break;
+			case 0x103: telemetry_data.tHasDRS = value; break;
+			case 0x104: telemetry_data.tDrs = value; break;
+			case 0x105: telemetry_data.tPitLim = value; break;
+			case 0x106: telemetry_data.tFuel = value; break;
+			case 0x107: telemetry_data.tBrakeBias = value; break;
+			case 0x108: telemetry_data.tMaxRpm = value; break;
+			case 0x109: telemetry_data.tForceFB = value; break;
+			default: break;
 		}
-    }
+	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {

@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <stdint.h>
 #include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -39,7 +40,8 @@ pedal_data_t pedal_data;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define FILTER_SIZE 5  // Number of samples to average
+#define ADC_SAMPLES 10  // Number of samples to average
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -55,6 +57,13 @@ CAN_HandleTypeDef hcan;
 /* USER CODE BEGIN PV */
 uint32_t lastSendTime = 0;
 uint32_t adc_values[3];  // Store ADC readings for PA0, PA1, PA2
+
+static int16_t encoder1_buffer[FILTER_SIZE] = {0};
+static int16_t encoder2_buffer[FILTER_SIZE] = {0};
+static int16_t encoder3_buffer[FILTER_SIZE] = {0};
+
+static int filter_index = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -70,8 +79,10 @@ static void MX_ADC1_Init(void);
 /* USER CODE BEGIN 0 */
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
+void sendCANMessage(uint16_t canID, int16_t value);
 void Read_ADC_Value();
 void Read_Potentiometers();
+int16_t moving_average(int16_t buffer[], int16_t new_value);
 uint8_t map_hall_sensor(uint16_t adc_value);
 /* USER CODE END 0 */
 
@@ -209,7 +220,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_0;
   sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_41CYCLES_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -322,72 +333,55 @@ static void MX_GPIO_Init(void)
 /*
  * CAN BUS FUNCTIONS
  */
-
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
 	if(currentTime - lastSendTime >= 37) {
-		CAN_TxHeaderTypeDef TxHeader;
-		uint32_t TxMailbox;
+		sendCANMessage(0x300, pedal_data.encoder_1);
+		sendCANMessage(0x301, pedal_data.encoder_2);
+		sendCANMessage(0x302, pedal_data.encoder_3);
 
-		// Create a telemetry_packet instance and initialize its fields
-		pedal_data_t dataToSend = pedal_data;
-//		dataToSend.encoder_1 = 1234;         // Example: Encoder 1 value
-//		dataToSend.encoder_2 = -2234;        // Example: Encoder 2 value
-//		dataToSend.encoder_3 = 5234;         // Example: Encoder 3 value
-
-		uint8_t* rawData = (uint8_t*)&dataToSend;
-
-		// Initialize CAN Header
-		TxHeader.StdId = 0x102;           // CAN ID for the message
-		TxHeader.ExtId = 0;
-		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
-
-		uint8_t frameData[8];             // Temporary buffer for each CAN frame
-
-		// Calculate the size of the telemetry_packet struct
-		int totalSize = sizeof(pedal_data_t);
-
-		// Split the telemetry_packet into CAN frames
-		for (int i = 0; i < totalSize; i += 8) {
-			// Calculate the size of the current chunk (for the last frame)
-			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
-
-			// Copy the next chunk of data into the frame buffer
-			memcpy(frameData, &rawData[i], chunkSize);
-
-			// Adjust DLC for the last frame
-			TxHeader.DLC = chunkSize;
-
-			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
-			if (status != HAL_OK) {
-				// Inspect the error
-				if (status == HAL_ERROR) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-				} else if (status == HAL_BUSY) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-				} else if (status == HAL_TIMEOUT) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-				}
-
-				// Optionally log the state of CAN error counters
-				uint32_t error = HAL_CAN_GetError(&hcan);
-				printf("CAN Error Code: 0x%08lx\n", error); // Only if you decide to stop execution
-			}
-			lastSendTime = currentTime;  // Update last transmission time
-			HAL_Delay(1);
-		}
+		lastSendTime = currentTime;  // Update last transmission time
+		HAL_Delay(1);
 	}
 }
 
+void sendCANMessage(uint16_t canID, int16_t value) {
+    CAN_TxHeaderTypeDef TxHeader;
+    uint8_t TxData[2];  // 2-byte buffer for int16_t
+    uint32_t TxMailbox;
+
+    // Pack int16_t correctly (Little Endian)
+    TxData[0] = (uint8_t)(value & 0xFF);
+    TxData[1] = (uint8_t)((value >> 8) & 0xFF);
+
+    // Configure the CAN header
+    TxHeader.StdId = canID;  // Set the ID
+    TxHeader.IDE = CAN_ID_STD;  // Standard 11-bit ID
+    TxHeader.RTR = CAN_RTR_DATA;  // Data frame, not remote request
+    TxHeader.DLC = sizeof(value);  // Data Length = 4 bytes
+
+    // Copy integer value into TxData buffer (ensure correct byte order)
+    memcpy(TxData, &value, sizeof(value));
+
+    // Send the CAN message
+    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
+    	 // Optionally log the state of CAN error counters
+		uint32_t error = HAL_CAN_GetError(&hcan);
+		HAL_CAN_Stop(&hcan);  // Stop CAN
+		HAL_CAN_Start(&hcan); // Restart CAN
+
+		// Optional: Clear error flags
+		__HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
+    }
+}
+
 void Read_ADC_Value() {
-    HAL_ADC_Start(&hadc1);
+    HAL_ADC_Start(&hadc1);  // Start conversion for all channels
 
     for (int i = 0; i < 3; i++) {
         HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-        adc_values[i] = HAL_ADC_GetValue(&hadc1);
+        adc_values[i] = HAL_ADC_GetValue(&hadc1);  // Read each channel in order
     }
 
     HAL_ADC_Stop(&hadc1);
@@ -395,9 +389,20 @@ void Read_ADC_Value() {
 
 void Read_Potentiometers() {
 	Read_ADC_Value();
-	pedal_data.encoder_1 = map_hall_sensor(adc_values[0]);  // Read PA0 (ADC1_IN0)
-	pedal_data.encoder_2 = map_hall_sensor(adc_values[1]);  // Read PA1 (ADC1_IN1)
-	pedal_data.encoder_3 = map_hall_sensor(adc_values[2]);  // Read PA2 (ADC1_IN2)
+	pedal_data.encoder_1 = moving_average(encoder1_buffer, map_hall_sensor(adc_values[0]));
+	pedal_data.encoder_2 = moving_average(encoder2_buffer, map_hall_sensor(adc_values[1]));
+	pedal_data.encoder_3 = moving_average(encoder3_buffer, map_hall_sensor(adc_values[2]));
+}
+
+int16_t moving_average(int16_t buffer[], int16_t new_value) {
+    buffer[filter_index % FILTER_SIZE] = new_value;  // Store new reading in buffer
+    filter_index++;
+
+    int32_t sum = 0;
+    for (int i = 0; i < FILTER_SIZE; i++) {
+        sum += buffer[i];  // Sum up last FILTER_SIZE values
+    }
+    return (int16_t)(sum / FILTER_SIZE);  // Return average
 }
 
 uint8_t map_hall_sensor(uint16_t adc_value) {
