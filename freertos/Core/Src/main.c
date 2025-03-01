@@ -129,6 +129,7 @@ int main(void)
   init_encoder();
   DWT_Init();
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
 
   MX_USB_DEVICE_Init();
 
