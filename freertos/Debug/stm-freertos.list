@@ -27,25 +27,25 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000030  00000000  00000000  00011324  2**0
                   CONTENTS, READONLY
- 12 .debug_info   00024da8  00000000  00000000  00011354  2**0
+ 12 .debug_info   00024dac  00000000  00000000  00011354  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 00006153  00000000  00000000  000360fc  2**0
+ 13 .debug_abbrev 00006151  00000000  00000000  00036100  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 00001c90  00000000  00000000  0003c250  2**3
+ 14 .debug_aranges 00001c90  00000000  00000000  0003c258  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_rnglists 000015ae  00000000  00000000  0003dee0  2**0
+ 15 .debug_rnglists 000015ae  00000000  00000000  0003dee8  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  00029086  00000000  00000000  0003f48e  2**0
+ 16 .debug_macro  00029086  00000000  00000000  0003f496  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   00026a78  00000000  00000000  00068514  2**0
+ 17 .debug_line   00026a62  00000000  00000000  0006851c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    000edf61  00000000  00000000  0008ef8c  2**0
+ 18 .debug_str    000edf61  00000000  00000000  0008ef7e  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  0017ceed  2**0
+ 19 .comment      00000043  00000000  00000000  0017cedf  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00007bc8  00000000  00000000  0017cf30  2**2
+ 20 .debug_frame  00007bc8  00000000  00000000  0017cf24  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000004b  00000000  00000000  00184af8  2**0
+ 21 .debug_line_str 0000004b  00000000  00000000  00184aec  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -1565,27 +1565,27 @@ void HAL_CAN_MspInit(CAN_HandleTypeDef* canHandle)
 static StaticTask_t xIdleTaskTCBBuffer;
 static StackType_t xIdleStack[configMINIMAL_STACK_SIZE];
 
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize )
-{
+void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer,
+		StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize) {
  80010b4:	b480      	push	{r7}
  80010b6:	b085      	sub	sp, #20
  80010b8:	af00      	add	r7, sp, #0
  80010ba:	60f8      	str	r0, [r7, #12]
  80010bc:	60b9      	str	r1, [r7, #8]
  80010be:	607a      	str	r2, [r7, #4]
-  *ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
+	*ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
  80010c0:	68fb      	ldr	r3, [r7, #12]
  80010c2:	4a07      	ldr	r2, [pc, #28]	@ (80010e0 <vApplicationGetIdleTaskMemory+0x2c>)
  80010c4:	601a      	str	r2, [r3, #0]
-  *ppxIdleTaskStackBuffer = &xIdleStack[0];
+	*ppxIdleTaskStackBuffer = &xIdleStack[0];
  80010c6:	68bb      	ldr	r3, [r7, #8]
  80010c8:	4a06      	ldr	r2, [pc, #24]	@ (80010e4 <vApplicationGetIdleTaskMemory+0x30>)
  80010ca:	601a      	str	r2, [r3, #0]
-  *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
+	*pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
  80010cc:	687b      	ldr	r3, [r7, #4]
  80010ce:	2280      	movs	r2, #128	@ 0x80
  80010d0:	601a      	str	r2, [r3, #0]
-  /* place for user code */
+	/* place for user code */
 }
  80010d2:	bf00      	nop
  80010d4:	3714      	adds	r7, #20
@@ -1598,15 +1598,15 @@ void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackTy
 
 080010e8 <MX_FREERTOS_Init>:
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
 void MX_FREERTOS_Init(void) {
  80010e8:	b5b0      	push	{r4, r5, r7, lr}
  80010ea:	b09a      	sub	sp, #104	@ 0x68
  80010ec:	af00      	add	r7, sp, #0
-  /* USER CODE BEGIN Init */
+	/* USER CODE BEGIN Init */
 	telemetry_data.tRpm = 0;
  80010ee:	4b45      	ldr	r3, [pc, #276]	@ (8001204 <MX_FREERTOS_Init+0x11c>)
  80010f0:	2200      	movs	r2, #0
@@ -1677,17 +1677,17 @@ void MX_FREERTOS_Init(void) {
  8001152:	2100      	movs	r1, #0
  8001154:	482b      	ldr	r0, [pc, #172]	@ (8001204 <MX_FREERTOS_Init+0x11c>)
  8001156:	f00d ffc7 	bl	800f0e8 <memset>
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
+	/* add mutexes, ... */
+	/* USER CODE END RTOS_MUTEX */
 
-  /* Create the semaphores(s) */
-  /* definition and creation of spiSendMutex */
-  osSemaphoreDef(spiSendMutex);
+	/* Create the semaphores(s) */
+	/* definition and creation of spiSendMutex */
+	osSemaphoreDef(spiSendMutex);
  800115a:	2300      	movs	r3, #0
  800115c:	663b      	str	r3, [r7, #96]	@ 0x60
  800115e:	2300      	movs	r3, #0
  8001160:	667b      	str	r3, [r7, #100]	@ 0x64
-  spiSendMutexHandle = osSemaphoreCreate(osSemaphore(spiSendMutex), 1);
+	spiSendMutexHandle = osSemaphoreCreate(osSemaphore(spiSendMutex), 1);
  8001162:	f107 0360 	add.w	r3, r7, #96	@ 0x60
  8001166:	2101      	movs	r1, #1
  8001168:	4618      	mov	r0, r3
@@ -1696,13 +1696,13 @@ void MX_FREERTOS_Init(void) {
  8001170:	4a27      	ldr	r2, [pc, #156]	@ (8001210 <MX_FREERTOS_Init+0x128>)
  8001172:	6013      	str	r3, [r2, #0]
 
-  /* definition and creation of uartMutex */
-  osSemaphoreDef(uartMutex);
+	/* definition and creation of uartMutex */
+	osSemaphoreDef(uartMutex);
  8001174:	2300      	movs	r3, #0
  8001176:	65bb      	str	r3, [r7, #88]	@ 0x58
  8001178:	2300      	movs	r3, #0
  800117a:	65fb      	str	r3, [r7, #92]	@ 0x5c
-  uartMutexHandle = osSemaphoreCreate(osSemaphore(uartMutex), 1);
+	uartMutexHandle = osSemaphoreCreate(osSemaphore(uartMutex), 1);
  800117c:	f107 0358 	add.w	r3, r7, #88	@ 0x58
  8001180:	2101      	movs	r1, #1
  8001182:	4618      	mov	r0, r3
@@ -1710,12 +1710,12 @@ void MX_FREERTOS_Init(void) {
  8001188:	4603      	mov	r3, r0
  800118a:	4a22      	ldr	r2, [pc, #136]	@ (8001214 <MX_FREERTOS_Init+0x12c>)
  800118c:	6013      	str	r3, [r2, #0]
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
+	/* add queues, ... */
+	/* USER CODE END RTOS_QUEUES */
 
-  /* Create the thread(s) */
-  /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+	/* Create the thread(s) */
+	/* definition and creation of defaultTask */
+	osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
  800118e:	4b22      	ldr	r3, [pc, #136]	@ (8001218 <MX_FREERTOS_Init+0x130>)
  8001190:	f107 043c 	add.w	r4, r7, #60	@ 0x3c
  8001194:	461d      	mov	r5, r3
@@ -1723,7 +1723,7 @@ void MX_FREERTOS_Init(void) {
  8001198:	c40f      	stmia	r4!, {r0, r1, r2, r3}
  800119a:	e895 0007 	ldmia.w	r5, {r0, r1, r2}
  800119e:	e884 0007 	stmia.w	r4, {r0, r1, r2}
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+	defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
  80011a2:	f107 033c 	add.w	r3, r7, #60	@ 0x3c
  80011a6:	2100      	movs	r1, #0
  80011a8:	4618      	mov	r0, r3
@@ -1732,8 +1732,8 @@ void MX_FREERTOS_Init(void) {
  80011b0:	4a1a      	ldr	r2, [pc, #104]	@ (800121c <MX_FREERTOS_Init+0x134>)
  80011b2:	6013      	str	r3, [r2, #0]
 
-  /* definition and creation of ControlLoopTask */
-  osThreadDef(ControlLoopTask, StartControlLoop, osPriorityHigh, 0, 512);
+	/* definition and creation of ControlLoopTask */
+	osThreadDef(ControlLoopTask, StartControlLoop, osPriorityHigh, 0, 512);
  80011b4:	4b1a      	ldr	r3, [pc, #104]	@ (8001220 <MX_FREERTOS_Init+0x138>)
  80011b6:	f107 0420 	add.w	r4, r7, #32
  80011ba:	461d      	mov	r5, r3
@@ -1741,7 +1741,7 @@ void MX_FREERTOS_Init(void) {
  80011be:	c40f      	stmia	r4!, {r0, r1, r2, r3}
  80011c0:	e895 0007 	ldmia.w	r5, {r0, r1, r2}
  80011c4:	e884 0007 	stmia.w	r4, {r0, r1, r2}
-  ControlLoopTaskHandle = osThreadCreate(osThread(ControlLoopTask), NULL);
+	ControlLoopTaskHandle = osThreadCreate(osThread(ControlLoopTask), NULL);
  80011c8:	f107 0320 	add.w	r3, r7, #32
  80011cc:	2100      	movs	r1, #0
  80011ce:	4618      	mov	r0, r3
@@ -1750,8 +1750,8 @@ void MX_FREERTOS_Init(void) {
  80011d6:	4a13      	ldr	r2, [pc, #76]	@ (8001224 <MX_FREERTOS_Init+0x13c>)
  80011d8:	6013      	str	r3, [r2, #0]
 
-  /* definition and creation of CommLoopTask */
-  osThreadDef(CommLoopTask, StartCommLoopTask, osPriorityNormal, 0, 512);
+	/* definition and creation of CommLoopTask */
+	osThreadDef(CommLoopTask, StartCommLoopTask, osPriorityNormal, 0, 512);
  80011da:	4b13      	ldr	r3, [pc, #76]	@ (8001228 <MX_FREERTOS_Init+0x140>)
  80011dc:	1d3c      	adds	r4, r7, #4
  80011de:	461d      	mov	r5, r3
@@ -1759,7 +1759,7 @@ void MX_FREERTOS_Init(void) {
  80011e2:	c40f      	stmia	r4!, {r0, r1, r2, r3}
  80011e4:	e895 0007 	ldmia.w	r5, {r0, r1, r2}
  80011e8:	e884 0007 	stmia.w	r4, {r0, r1, r2}
-  CommLoopTaskHandle = osThreadCreate(osThread(CommLoopTask), NULL);
+	CommLoopTaskHandle = osThreadCreate(osThread(CommLoopTask), NULL);
  80011ec:	1d3b      	adds	r3, r7, #4
  80011ee:	2100      	movs	r1, #0
  80011f0:	4618      	mov	r0, r3
@@ -1768,9 +1768,9 @@ void MX_FREERTOS_Init(void) {
  80011f8:	4a0c      	ldr	r2, [pc, #48]	@ (800122c <MX_FREERTOS_Init+0x144>)
  80011fa:	6013      	str	r3, [r2, #0]
 
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
+	/* USER CODE BEGIN RTOS_THREADS */
+	/* add threads, ... */
+	/* USER CODE END RTOS_THREADS */
 
 }
  80011fc:	bf00      	nop
@@ -1790,130 +1790,132 @@ void MX_FREERTOS_Init(void) {
  800122c:	20000438 	.word	0x20000438
 
 08001230 <StartDefaultTask>:
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the defaultTask thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
-{
+void StartDefaultTask(void const *argument) {
  8001230:	b480      	push	{r7}
  8001232:	b083      	sub	sp, #12
  8001234:	af00      	add	r7, sp, #0
  8001236:	6078      	str	r0, [r7, #4]
-  /* USER CODE BEGIN StartDefaultTask */
-  /* Infinite loop */
-  for(;;)
+	/* USER CODE BEGIN StartDefaultTask */
+	/* Infinite loop */
+	for (;;) {
  8001238:	bf00      	nop
  800123a:	e7fd      	b.n	8001238 <StartDefaultTask+0x8>
 
 0800123c <StartControlLoop>:
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the ControlLoopTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartControlLoop */
-void StartControlLoop(void const * argument)
-{
+void StartControlLoop(void const *argument) {
  800123c:	b580      	push	{r7, lr}
  800123e:	b08e      	sub	sp, #56	@ 0x38
  8001240:	af00      	add	r7, sp, #0
  8001242:	6078      	str	r0, [r7, #4]
-  /* USER CODE BEGIN StartControlLoop */
-  /* Infinite loop */
-  for(;;)
-  {
-	  float total_force = 0.0;
+	/* USER CODE BEGIN StartControlLoop */
+	/* Infinite loop */
+	for (;;) {
+		float total_force = 0.0;
  8001244:	f04f 0300 	mov.w	r3, #0
  8001248:	637b      	str	r3, [r7, #52]	@ 0x34
-	  const float Kp = 1.0f;
+		const float Kp = 1.0f;
  800124a:	f04f 537e 	mov.w	r3, #1065353216	@ 0x3f800000
  800124e:	633b      	str	r3, [r7, #48]	@ 0x30
 
-	  for (;;) {
-		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
-		  float force_feedback_signal = gFfbSignal;
+		for (;;) {
+			// Step 1: Retrieve current force feedback signal (e.g., from game data).
+			float force_feedback_signal = gFfbSignal;
  8001250:	4b56      	ldr	r3, [pc, #344]	@ (80013ac <StartControlLoop+0x170>)
  8001252:	681b      	ldr	r3, [r3, #0]
  8001254:	62fb      	str	r3, [r7, #44]	@ 0x2c
 
-		  // Step 2: Calculate individual forces based on physics:
-		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
+			// Step 2: Calculate individual forces based on physics:
+			float inertia_force = calculate_inertia(force_feedback_signal,
  8001256:	4b56      	ldr	r3, [pc, #344]	@ (80013b0 <StartControlLoop+0x174>)
  8001258:	edd3 7a00 	vldr	s15, [r3]
  800125c:	eef0 0a67 	vmov.f32	s1, s15
  8001260:	ed97 0a0b 	vldr	s0, [r7, #44]	@ 0x2c
  8001264:	f000 fa24 	bl	80016b0 <calculate_inertia>
  8001268:	ed87 0a0a 	vstr	s0, [r7, #40]	@ 0x28
-		  float damping_force = calculate_damping(angular_velocity);
+					angular_velocity);
+			float damping_force = calculate_damping(angular_velocity);
  800126c:	4b50      	ldr	r3, [pc, #320]	@ (80013b0 <StartControlLoop+0x174>)
  800126e:	edd3 7a00 	vldr	s15, [r3]
  8001272:	eeb0 0a67 	vmov.f32	s0, s15
  8001276:	f000 fa4b 	bl	8001710 <calculate_damping>
  800127a:	ed87 0a09 	vstr	s0, [r7, #36]	@ 0x24
-		  float friction_force = calculate_friction(angular_velocity);
+			float friction_force = calculate_friction(angular_velocity);
  800127e:	4b4c      	ldr	r3, [pc, #304]	@ (80013b0 <StartControlLoop+0x174>)
  8001280:	edd3 7a00 	vldr	s15, [r3]
  8001284:	eeb0 0a67 	vmov.f32	s0, s15
  8001288:	f000 fa5a 	bl	8001740 <calculate_friction>
  800128c:	ed87 0a08 	vstr	s0, [r7, #32]
-		  float lock_force = calculate_lock(wheel_angle);
+			float lock_force = calculate_lock(wheel_angle);
  8001290:	4b48      	ldr	r3, [pc, #288]	@ (80013b4 <StartControlLoop+0x178>)
  8001292:	edd3 7a00 	vldr	s15, [r3]
  8001296:	eeb0 0a67 	vmov.f32	s0, s15
  800129a:	f000 fa7b 	bl	8001794 <calculate_lock>
  800129e:	ed87 0a07 	vstr	s0, [r7, #28]
 
-		  // Step 3: Sum all forces and scale to PWM range:
-		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
+			// Step 3: Sum all forces and scale to PWM range:
+			total_force = force_feedback_signal + inertia_force + damping_force
  80012a2:	ed97 7a0b 	vldr	s14, [r7, #44]	@ 0x2c
  80012a6:	edd7 7a0a 	vldr	s15, [r7, #40]	@ 0x28
  80012aa:	ee37 7a27 	vadd.f32	s14, s14, s15
  80012ae:	edd7 7a09 	vldr	s15, [r7, #36]	@ 0x24
  80012b2:	ee37 7a27 	vadd.f32	s14, s14, s15
+					+ friction_force + lock_force;
  80012b6:	edd7 7a08 	vldr	s15, [r7, #32]
  80012ba:	ee77 7a27 	vadd.f32	s15, s14, s15
+			total_force = force_feedback_signal + inertia_force + damping_force
  80012be:	ed97 7a07 	vldr	s14, [r7, #28]
  80012c2:	ee77 7a27 	vadd.f32	s15, s14, s15
  80012c6:	edc7 7a0d 	vstr	s15, [r7, #52]	@ 0x34
 
-		  // Strength gain
-		  total_force *= gStrength;
+			// Strength gain
+			total_force *= gStrength;
  80012ca:	4b3b      	ldr	r3, [pc, #236]	@ (80013b8 <StartControlLoop+0x17c>)
  80012cc:	edd3 7a00 	vldr	s15, [r3]
  80012d0:	ed97 7a0d 	vldr	s14, [r7, #52]	@ 0x34
  80012d4:	ee67 7a27 	vmul.f32	s15, s14, s15
  80012d8:	edc7 7a0d 	vstr	s15, [r7, #52]	@ 0x34
 
-		  total_force = constrain(total_force, -1.0, 1.0);
+			total_force = constrain(total_force, -1.0, 1.0);
  80012dc:	eeb7 1a00 	vmov.f32	s2, #112	@ 0x3f800000  1.0
  80012e0:	eeff 0a00 	vmov.f32	s1, #240	@ 0xbf800000 -1.0
  80012e4:	ed97 0a0d 	vldr	s0, [r7, #52]	@ 0x34
  80012e8:	f000 f9b8 	bl	800165c <constrain>
  80012ec:	ed87 0a0d 	vstr	s0, [r7, #52]	@ 0x34
 
-		  // Deadband
-		  const float FORCE_DEADBAND_THRESHOLD = 0.05f; // Adjust as needed
+			// Deadband
+			const float FORCE_DEADBAND_THRESHOLD = 0.05f; // Adjust as needed
  80012f0:	4b32      	ldr	r3, [pc, #200]	@ (80013bc <StartControlLoop+0x180>)
  80012f2:	61bb      	str	r3, [r7, #24]
-		  const float ANGLE_DEADBAND_THRESHOLD = 50.0f; // Adjust as needed
+			const float ANGLE_DEADBAND_THRESHOLD = 50.0f; // Adjust as needed
  80012f4:	4b32      	ldr	r3, [pc, #200]	@ (80013c0 <StartControlLoop+0x184>)
  80012f6:	617b      	str	r3, [r7, #20]
-		  float error = wheel_angle;
+			float error = wheel_angle;
  80012f8:	4b2e      	ldr	r3, [pc, #184]	@ (80013b4 <StartControlLoop+0x178>)
  80012fa:	681b      	ldr	r3, [r3, #0]
  80012fc:	613b      	str	r3, [r7, #16]
-		  if (fabsf(error) < ANGLE_DEADBAND_THRESHOLD)  {
+			if (fabsf(error) < ANGLE_DEADBAND_THRESHOLD) {
  80012fe:	edd7 7a04 	vldr	s15, [r7, #16]
  8001302:	eef0 7ae7 	vabs.f32	s15, s15
  8001306:	ed97 7a05 	vldr	s14, [r7, #20]
  800130a:	eeb4 7ae7 	vcmpe.f32	s14, s15
  800130e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001312:	dd03      	ble.n	800131c <StartControlLoop+0xe0>
-			  total_force = 0.0f;
+				total_force = 0.0f;
  8001314:	f04f 0300 	mov.w	r3, #0
  8001318:	637b      	str	r3, [r7, #52]	@ 0x34
  800131a:	e017      	b.n	800134c <StartControlLoop+0x110>
-		  } else { // TEST CODE: gives increasing feedback farther away from center
-			  total_force = -Kp * (error / WHEEL_MAX_ANGLE);
+			} else { // TEST CODE: gives increasing feedback farther away from center
+				total_force = -Kp * (error / WHEEL_MAX_ANGLE);
  800131c:	edd7 7a0c 	vldr	s15, [r7, #48]	@ 0x30
  8001320:	eeb1 7a67 	vneg.f32	s14, s15
  8001324:	edd7 6a04 	vldr	s13, [r7, #16]
@@ -1921,21 +1923,21 @@ void StartControlLoop(void const * argument)
  800132c:	eec6 7a86 	vdiv.f32	s15, s13, s12
  8001330:	ee67 7a27 	vmul.f32	s15, s14, s15
  8001334:	edc7 7a0d 	vstr	s15, [r7, #52]	@ 0x34
-			  total_force = constrain(total_force, -1.0f, 1.0f);
+				total_force = constrain(total_force, -1.0f, 1.0f);
  8001338:	eeb7 1a00 	vmov.f32	s2, #112	@ 0x3f800000  1.0
  800133c:	eeff 0a00 	vmov.f32	s1, #240	@ 0xbf800000 -1.0
  8001340:	ed97 0a0d 	vldr	s0, [r7, #52]	@ 0x34
  8001344:	f000 f98a 	bl	800165c <constrain>
  8001348:	ed87 0a0d 	vstr	s0, [r7, #52]	@ 0x34
-		  }
+			}
 
-		  // Step 4: Map total_force to PWM and determine direction
-		  float pwm_output = scale_to_pwm(total_force);
+			// Step 4: Map total_force to PWM and determine direction
+			float pwm_output = scale_to_pwm(total_force);
  800134c:	ed97 0a0d 	vldr	s0, [r7, #52]	@ 0x34
  8001350:	f000 fa66 	bl	8001820 <scale_to_pwm>
  8001354:	ed87 0a03 	vstr	s0, [r7, #12]
-		  // 0 is negative direction; 1 is positive direction
-		  uint8_t motor_direction = (total_force >= 0) ? 1 : 0;
+			// 0 is negative direction; 1 is positive direction
+			uint8_t motor_direction = (total_force >= 0) ? 1 : 0;
  8001358:	edd7 7a0d 	vldr	s15, [r7, #52]	@ 0x34
  800135c:	eef5 7ac0 	vcmpe.f32	s15, #0.0
  8001360:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
@@ -1945,46 +1947,44 @@ void StartControlLoop(void const * argument)
  800136a:	b2db      	uxtb	r3, r3
  800136c:	72fb      	strb	r3, [r7, #11]
 
-		  // Debug
-		  gDir = motor_direction;
+			// Debug
+			gDir = motor_direction;
  800136e:	4a16      	ldr	r2, [pc, #88]	@ (80013c8 <StartControlLoop+0x18c>)
  8001370:	7afb      	ldrb	r3, [r7, #11]
  8001372:	7013      	strb	r3, [r2, #0]
-		  gTotalforce = total_force;
+			gTotalforce = total_force;
  8001374:	4a15      	ldr	r2, [pc, #84]	@ (80013cc <StartControlLoop+0x190>)
  8001376:	6b7b      	ldr	r3, [r7, #52]	@ 0x34
  8001378:	6013      	str	r3, [r2, #0]
-		  gPWMConst = pwm_output;
+			gPWMConst = pwm_output;
  800137a:	4a15      	ldr	r2, [pc, #84]	@ (80013d0 <StartControlLoop+0x194>)
  800137c:	68fb      	ldr	r3, [r7, #12]
  800137e:	6013      	str	r3, [r2, #0]
 
-		  // Step 5: Send PWM signal to H-bridge for motor control:
-		  //set_motor_direction(motor_direction);
-		  set_motor_pwm(pwm_output, motor_direction);
+			// Step 5: Send PWM signal to H-bridge for motor control:
+			//set_motor_direction(motor_direction);
+			set_motor_pwm(pwm_output, motor_direction);
  8001380:	7afb      	ldrb	r3, [r7, #11]
  8001382:	4618      	mov	r0, r3
  8001384:	ed97 0a03 	vldr	s0, [r7, #12]
  8001388:	f000 fbde 	bl	8001b48 <set_motor_pwm>
 
-		  // Step 6: Update wheel position and velocity for next loop:
-		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
+			// Step 6: Update wheel position and velocity for next loop:
+			update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
  800138c:	4908      	ldr	r1, [pc, #32]	@ (80013b0 <StartControlLoop+0x174>)
  800138e:	4809      	ldr	r0, [pc, #36]	@ (80013b4 <StartControlLoop+0x178>)
  8001390:	f000 fb34 	bl	80019fc <update_wheel_position_and_velocity>
 
-
-
-		  gHall = read_hall_sensor();
+			gHall = read_hall_sensor();
  8001394:	f000 fc58 	bl	8001c48 <read_hall_sensor>
  8001398:	eef0 7a40 	vmov.f32	s15, s0
  800139c:	4b0d      	ldr	r3, [pc, #52]	@ (80013d4 <StartControlLoop+0x198>)
  800139e:	edc3 7a00 	vstr	s15, [r3]
-		  // Run this task periodically (every 10ms):
-		  osDelay(5);
+			// Run this task periodically (every 10ms):
+			osDelay(5);
  80013a2:	2005      	movs	r0, #5
  80013a4:	f00b fa19 	bl	800c7da <osDelay>
-	  for (;;) {
+		for (;;) {
  80013a8:	e752      	b.n	8001250 <StartControlLoop+0x14>
  80013aa:	bf00      	nop
  80013ac:	20000424 	.word	0x20000424
@@ -2000,21 +2000,20 @@ void StartControlLoop(void const * argument)
  80013d4:	20000414 	.word	0x20000414
 
 080013d8 <StartCommLoopTask>:
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the CommLoopTask thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartCommLoopTask */
-void StartCommLoopTask(void const * argument)
-{
+void StartCommLoopTask(void const *argument) {
  80013d8:	b580      	push	{r7, lr}
  80013da:	b082      	sub	sp, #8
  80013dc:	af00      	add	r7, sp, #0
  80013de:	6078      	str	r0, [r7, #4]
-  /* USER CODE BEGIN StartCommLoopTask */
-  /* Infinite loop */
-  for(;;)
-  {
-	  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
+	/* USER CODE BEGIN StartCommLoopTask */
+	/* Infinite loop */
+	for (;;) {
+		if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
  80013e0:	4b08      	ldr	r3, [pc, #32]	@ (8001404 <StartCommLoopTask+0x2c>)
  80013e2:	681b      	ldr	r3, [r3, #0]
  80013e4:	210a      	movs	r1, #10
@@ -2023,16 +2022,16 @@ void StartCommLoopTask(void const * argument)
  80013ec:	4603      	mov	r3, r0
  80013ee:	2b00      	cmp	r3, #0
  80013f0:	d101      	bne.n	80013f6 <StartCommLoopTask+0x1e>
-		  runCAN();
+			runCAN();
  80013f2:	f000 f877 	bl	80014e4 <runCAN>
-	  }
+		}
 
-	  runReport();
+		runReport();
  80013f6:	f000 f827 	bl	8001448 <runReport>
-    osDelay(10);
+		osDelay(10);
  80013fa:	200a      	movs	r0, #10
  80013fc:	f00b f9ed 	bl	800c7da <osDelay>
-	  if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
+		if (osSemaphoreWait(spiSendMutexHandle, 10) == osOK) {
  8001400:	e7ee      	b.n	80013e0 <StartCommLoopTask+0x8>
  8001402:	bf00      	nop
  8001404:	2000043c 	.word	0x2000043c
@@ -2046,24 +2045,24 @@ void StartCommLoopTask(void const * argument)
 void DWT_Init(void) {
  8001408:	b480      	push	{r7}
  800140a:	af00      	add	r7, sp, #0
-    if (!(CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk)) {
+	if (!(CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk)) {
  800140c:	4b0c      	ldr	r3, [pc, #48]	@ (8001440 <DWT_Init+0x38>)
  800140e:	68db      	ldr	r3, [r3, #12]
  8001410:	f003 7380 	and.w	r3, r3, #16777216	@ 0x1000000
  8001414:	2b00      	cmp	r3, #0
  8001416:	d105      	bne.n	8001424 <DWT_Init+0x1c>
-        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+		CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
  8001418:	4b09      	ldr	r3, [pc, #36]	@ (8001440 <DWT_Init+0x38>)
  800141a:	68db      	ldr	r3, [r3, #12]
  800141c:	4a08      	ldr	r2, [pc, #32]	@ (8001440 <DWT_Init+0x38>)
  800141e:	f043 7380 	orr.w	r3, r3, #16777216	@ 0x1000000
  8001422:	60d3      	str	r3, [r2, #12]
-    }
-    DWT->CYCCNT = 0; // Reset the cycle counter
+	}
+	DWT->CYCCNT = 0; // Reset the cycle counter
  8001424:	4b07      	ldr	r3, [pc, #28]	@ (8001444 <DWT_Init+0x3c>)
  8001426:	2200      	movs	r2, #0
  8001428:	605a      	str	r2, [r3, #4]
-    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Enable the cycle counter
+	DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk; // Enable the cycle counter
  800142a:	4b06      	ldr	r3, [pc, #24]	@ (8001444 <DWT_Init+0x3c>)
  800142c:	681b      	ldr	r3, [r3, #0]
  800142e:	4a05      	ldr	r2, [pc, #20]	@ (8001444 <DWT_Init+0x3c>)
@@ -2078,9 +2077,9 @@ void DWT_Init(void) {
  8001444:	e0001000 	.word	0xe0001000
 
 08001448 <runReport>:
-    while ((DWT->CYCCNT - startTick) < delayTicks) {
-        // Wait until the required delay has passed
-    }
+	while ((DWT->CYCCNT - startTick) < delayTicks) {
+		// Wait until the required delay has passed
+	}
 }
 
 void runReport() {
@@ -2159,7 +2158,7 @@ void runReport() {
 //	HIDReport.rz = (uint8_t) (user_input_data.encoder_1 & 0xFF);
 //	HIDReport.slider = (uint8_t) (user_input_data.encoder_2 & 0xFF);
 
-	USBD_CUSTOM_HID_SendCustomReport((uint8_t *)&HIDReport, sizeof(HIDReport));
+	USBD_CUSTOM_HID_SendCustomReport((uint8_t*) &HIDReport, sizeof(HIDReport));
  80014c2:	210a      	movs	r1, #10
  80014c4:	4803      	ldr	r0, [pc, #12]	@ (80014d4 <runReport+0x8c>)
  80014c6:	f008 f9bd 	bl	8009844 <USBD_CUSTOM_HID_SendCustomReport>
@@ -2180,19 +2179,19 @@ void runCAN() {
  80014e4:	b580      	push	{r7, lr}
  80014e6:	b082      	sub	sp, #8
  80014e8:	af00      	add	r7, sp, #0
-    static uint8_t messageIndex = 0;
-    uint32_t currentTime = HAL_GetTick();
+	static uint8_t messageIndex = 0;
+	uint32_t currentTime = HAL_GetTick();
  80014ea:	f001 fa17 	bl	800291c <HAL_GetTick>
  80014ee:	6078      	str	r0, [r7, #4]
 
-    if (currentTime - lastSendTime >= 2) {  // Reduce cycle time to avoid backlog
+	if (currentTime - lastSendTime >= 2) { // Reduce cycle time to avoid backlog
  80014f0:	4b3e      	ldr	r3, [pc, #248]	@ (80015ec <runCAN+0x108>)
  80014f2:	681b      	ldr	r3, [r3, #0]
  80014f4:	687a      	ldr	r2, [r7, #4]
  80014f6:	1ad3      	subs	r3, r2, r3
  80014f8:	2b01      	cmp	r3, #1
  80014fa:	d96d      	bls.n	80015d8 <runCAN+0xf4>
-        switch (messageIndex) {
+		switch (messageIndex) {
  80014fc:	4b3c      	ldr	r3, [pc, #240]	@ (80015f0 <runCAN+0x10c>)
  80014fe:	781b      	ldrb	r3, [r3, #0]
  8001500:	2b03      	cmp	r3, #3
@@ -2204,82 +2203,82 @@ void runCAN() {
  8001510:	08001549 	.word	0x08001549
  8001514:	08001575 	.word	0x08001575
  8001518:	080015a1 	.word	0x080015a1
-            case 0:
-                sendCANMessage(0x100, telemetry_data.tRpm);
+		case 0:
+			sendCANMessage(0x100, telemetry_data.tRpm);
  800151c:	4b35      	ldr	r3, [pc, #212]	@ (80015f4 <runCAN+0x110>)
  800151e:	681b      	ldr	r3, [r3, #0]
  8001520:	4619      	mov	r1, r3
  8001522:	f44f 7080 	mov.w	r0, #256	@ 0x100
  8001526:	f000 f869 	bl	80015fc <sendCANMessage>
-                sendCANMessage(0x101, telemetry_data.tGear);
+			sendCANMessage(0x101, telemetry_data.tGear);
  800152a:	4b32      	ldr	r3, [pc, #200]	@ (80015f4 <runCAN+0x110>)
  800152c:	685b      	ldr	r3, [r3, #4]
  800152e:	4619      	mov	r1, r3
  8001530:	f240 1001 	movw	r0, #257	@ 0x101
  8001534:	f000 f862 	bl	80015fc <sendCANMessage>
-                sendCANMessage(0x102, telemetry_data.tSpeedKmh);
+			sendCANMessage(0x102, telemetry_data.tSpeedKmh);
  8001538:	4b2e      	ldr	r3, [pc, #184]	@ (80015f4 <runCAN+0x110>)
  800153a:	689b      	ldr	r3, [r3, #8]
  800153c:	4619      	mov	r1, r3
  800153e:	f44f 7081 	mov.w	r0, #258	@ 0x102
  8001542:	f000 f85b 	bl	80015fc <sendCANMessage>
-                break;
+			break;
  8001546:	e037      	b.n	80015b8 <runCAN+0xd4>
-            case 1:
-                sendCANMessage(0x103, telemetry_data.tHasDRS);
+		case 1:
+			sendCANMessage(0x103, telemetry_data.tHasDRS);
  8001548:	4b2a      	ldr	r3, [pc, #168]	@ (80015f4 <runCAN+0x110>)
  800154a:	68db      	ldr	r3, [r3, #12]
  800154c:	4619      	mov	r1, r3
  800154e:	f240 1003 	movw	r0, #259	@ 0x103
  8001552:	f000 f853 	bl	80015fc <sendCANMessage>
-                sendCANMessage(0x104, telemetry_data.tDrs);
+			sendCANMessage(0x104, telemetry_data.tDrs);
  8001556:	4b27      	ldr	r3, [pc, #156]	@ (80015f4 <runCAN+0x110>)
  8001558:	691b      	ldr	r3, [r3, #16]
  800155a:	4619      	mov	r1, r3
  800155c:	f44f 7082 	mov.w	r0, #260	@ 0x104
  8001560:	f000 f84c 	bl	80015fc <sendCANMessage>
-                sendCANMessage(0x105, telemetry_data.tPitLim);
+			sendCANMessage(0x105, telemetry_data.tPitLim);
  8001564:	4b23      	ldr	r3, [pc, #140]	@ (80015f4 <runCAN+0x110>)
  8001566:	695b      	ldr	r3, [r3, #20]
  8001568:	4619      	mov	r1, r3
  800156a:	f240 1005 	movw	r0, #261	@ 0x105
  800156e:	f000 f845 	bl	80015fc <sendCANMessage>
-                break;
+			break;
  8001572:	e021      	b.n	80015b8 <runCAN+0xd4>
-            case 2:
-                sendCANMessage(0x106, telemetry_data.tFuel);
+		case 2:
+			sendCANMessage(0x106, telemetry_data.tFuel);
  8001574:	4b1f      	ldr	r3, [pc, #124]	@ (80015f4 <runCAN+0x110>)
  8001576:	699b      	ldr	r3, [r3, #24]
  8001578:	4619      	mov	r1, r3
  800157a:	f44f 7083 	mov.w	r0, #262	@ 0x106
  800157e:	f000 f83d 	bl	80015fc <sendCANMessage>
-                sendCANMessage(0x107, telemetry_data.tBrakeBias);
+			sendCANMessage(0x107, telemetry_data.tBrakeBias);
  8001582:	4b1c      	ldr	r3, [pc, #112]	@ (80015f4 <runCAN+0x110>)
  8001584:	69db      	ldr	r3, [r3, #28]
  8001586:	4619      	mov	r1, r3
  8001588:	f240 1007 	movw	r0, #263	@ 0x107
  800158c:	f000 f836 	bl	80015fc <sendCANMessage>
-                sendCANMessage(0x108, telemetry_data.tMaxRpm);
+			sendCANMessage(0x108, telemetry_data.tMaxRpm);
  8001590:	4b18      	ldr	r3, [pc, #96]	@ (80015f4 <runCAN+0x110>)
  8001592:	6a1b      	ldr	r3, [r3, #32]
  8001594:	4619      	mov	r1, r3
  8001596:	f44f 7084 	mov.w	r0, #264	@ 0x108
  800159a:	f000 f82f 	bl	80015fc <sendCANMessage>
-                break;
+			break;
  800159e:	e00b      	b.n	80015b8 <runCAN+0xd4>
-            case 3:
-                sendCANMessage(0x109, telemetry_data.tForceFB);
+		case 3:
+			sendCANMessage(0x109, telemetry_data.tForceFB);
  80015a0:	4b14      	ldr	r3, [pc, #80]	@ (80015f4 <runCAN+0x110>)
  80015a2:	edd3 7a09 	vldr	s15, [r3, #36]	@ 0x24
  80015a6:	eefd 7ae7 	vcvt.s32.f32	s15, s15
  80015aa:	ee17 1a90 	vmov	r1, s15
  80015ae:	f240 1009 	movw	r0, #265	@ 0x109
  80015b2:	f000 f823 	bl	80015fc <sendCANMessage>
-                break;
+			break;
  80015b6:	bf00      	nop
-        }
+		}
 
-        messageIndex = (messageIndex + 1) % 4;  // Cycle through cases
+		messageIndex = (messageIndex + 1) % 4;  // Cycle through cases
  80015b8:	4b0d      	ldr	r3, [pc, #52]	@ (80015f0 <runCAN+0x10c>)
  80015ba:	781b      	ldrb	r3, [r3, #0]
  80015bc:	3301      	adds	r3, #1
@@ -2291,13 +2290,13 @@ void runCAN() {
  80015cc:	b2da      	uxtb	r2, r3
  80015ce:	4b08      	ldr	r3, [pc, #32]	@ (80015f0 <runCAN+0x10c>)
  80015d0:	701a      	strb	r2, [r3, #0]
-        lastSendTime = currentTime;  // Update time
+		lastSendTime = currentTime;  // Update time
  80015d2:	4a06      	ldr	r2, [pc, #24]	@ (80015ec <runCAN+0x108>)
  80015d4:	687b      	ldr	r3, [r7, #4]
  80015d6:	6013      	str	r3, [r2, #0]
-    }
+	}
 
-    osSemaphoreRelease(spiSendMutexHandle);
+	osSemaphoreRelease(spiSendMutexHandle);
  80015d8:	4b07      	ldr	r3, [pc, #28]	@ (80015f8 <runCAN+0x114>)
  80015da:	681b      	ldr	r3, [r3, #0]
  80015dc:	4618      	mov	r0, r3
@@ -2322,31 +2321,31 @@ void sendCANMessage(uint16_t canID, int32_t value) {
  8001602:	4603      	mov	r3, r0
  8001604:	6039      	str	r1, [r7, #0]
  8001606:	80fb      	strh	r3, [r7, #6]
-    CAN_TxHeaderTypeDef TxHeader;
-    uint8_t TxData[4];  // 4-byte buffer
-    uint32_t TxMailbox;
+	CAN_TxHeaderTypeDef TxHeader;
+	uint8_t TxData[4];  // 4-byte buffer
+	uint32_t TxMailbox;
 
-    // Configure the CAN header
-    TxHeader.StdId = canID;  // Set the ID
+	// Configure the CAN header
+	TxHeader.StdId = canID;  // Set the ID
  8001608:	88fb      	ldrh	r3, [r7, #6]
  800160a:	617b      	str	r3, [r7, #20]
-    TxHeader.IDE = CAN_ID_STD;  // Standard 11-bit ID
+	TxHeader.IDE = CAN_ID_STD;  // Standard 11-bit ID
  800160c:	2300      	movs	r3, #0
  800160e:	61fb      	str	r3, [r7, #28]
-    TxHeader.RTR = CAN_RTR_DATA;  // Data frame, not remote request
+	TxHeader.RTR = CAN_RTR_DATA;  // Data frame, not remote request
  8001610:	2300      	movs	r3, #0
  8001612:	623b      	str	r3, [r7, #32]
-    TxHeader.DLC = sizeof(value);  // Data Length = 4 bytes
+	TxHeader.DLC = sizeof(value);  // Data Length = 4 bytes
  8001614:	2304      	movs	r3, #4
  8001616:	627b      	str	r3, [r7, #36]	@ 0x24
 
-    // Copy integer value into TxData buffer (ensure correct byte order)
-    memcpy(TxData, &value, sizeof(value));
+	// Copy integer value into TxData buffer (ensure correct byte order)
+	memcpy(TxData, &value, sizeof(value));
  8001618:	683b      	ldr	r3, [r7, #0]
  800161a:	613b      	str	r3, [r7, #16]
 
-    // Send the CAN message
-    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
+	// Send the CAN message
+	if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
  800161c:	f107 030c 	add.w	r3, r7, #12
  8001620:	f107 0210 	add.w	r2, r7, #16
  8001624:	f107 0114 	add.w	r1, r7, #20
@@ -2355,7 +2354,7 @@ void sendCANMessage(uint16_t canID, int32_t value) {
  800162e:	4603      	mov	r3, r0
  8001630:	2b00      	cmp	r3, #0
  8001632:	d00d      	beq.n	8001650 <sendCANMessage+0x54>
-    	 // Optionally log the state of CAN error counters
+		// Optionally log the state of CAN error counters
 		uint32_t error = HAL_CAN_GetError(&hcan1);
  8001634:	4808      	ldr	r0, [pc, #32]	@ (8001658 <sendCANMessage+0x5c>)
  8001636:	f002 fc7f 	bl	8003f38 <HAL_CAN_GetError>
@@ -2373,7 +2372,7 @@ void sendCANMessage(uint16_t canID, int32_t value) {
  800164a:	681b      	ldr	r3, [r3, #0]
  800164c:	2204      	movs	r2, #4
  800164e:	605a      	str	r2, [r3, #4]
-    }
+	}
 }
  8001650:	bf00      	nop
  8001652:	3730      	adds	r7, #48	@ 0x30
@@ -2383,8 +2382,8 @@ void sendCANMessage(uint16_t canID, int32_t value) {
 
 0800165c <constrain>:
 
-    // Calculate the oscillation value using a sine wave
-    return sin((2 * M_PI * elapsed_time) / period);
+	// Calculate the oscillation value using a sine wave
+	return sin((2 * M_PI * elapsed_time) / period);
 }
 
 float constrain(float x, float lower, float upper) {
@@ -2394,23 +2393,25 @@ float constrain(float x, float lower, float upper) {
  8001662:	ed87 0a03 	vstr	s0, [r7, #12]
  8001666:	edc7 0a02 	vstr	s1, [r7, #8]
  800166a:	ed87 1a01 	vstr	s2, [r7, #4]
-    if (x < lower) return lower;
+	if (x < lower)
  800166e:	ed97 7a03 	vldr	s14, [r7, #12]
  8001672:	edd7 7a02 	vldr	s15, [r7, #8]
  8001676:	eeb4 7ae7 	vcmpe.f32	s14, s15
  800167a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  800167e:	d501      	bpl.n	8001684 <constrain+0x28>
+		return lower;
  8001680:	68bb      	ldr	r3, [r7, #8]
  8001682:	e00b      	b.n	800169c <constrain+0x40>
-    if (x > upper) return upper;
+	if (x > upper)
  8001684:	ed97 7a03 	vldr	s14, [r7, #12]
  8001688:	edd7 7a01 	vldr	s15, [r7, #4]
  800168c:	eeb4 7ae7 	vcmpe.f32	s14, s15
  8001690:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001694:	dd01      	ble.n	800169a <constrain+0x3e>
+		return upper;
  8001696:	687b      	ldr	r3, [r7, #4]
  8001698:	e000      	b.n	800169c <constrain+0x40>
-    return x;
+	return x;
  800169a:	68fb      	ldr	r3, [r7, #12]
 }
  800169c:	ee07 3a90 	vmov	s15, r3
@@ -2429,27 +2430,29 @@ float calculate_inertia(float force_feedback, float angular_velocity) {
  80016b4:	af00      	add	r7, sp, #0
  80016b6:	ed87 0a01 	vstr	s0, [r7, #4]
  80016ba:	edc7 0a00 	vstr	s1, [r7]
-    static float previous_output = 0;
-    float inertia_coefficient = 0.1; // Fine-tune for feel
+	static float previous_output = 0;
+	float inertia_coefficient = 0.1; // Fine-tune for feel
  80016be:	4b12      	ldr	r3, [pc, #72]	@ (8001708 <calculate_inertia+0x58>)
  80016c0:	60fb      	str	r3, [r7, #12]
-    float inertia_force = inertia_coefficient * previous_output + (1 - inertia_coefficient) * force_feedback;
+	float inertia_force = inertia_coefficient * previous_output
  80016c2:	4b12      	ldr	r3, [pc, #72]	@ (800170c <calculate_inertia+0x5c>)
  80016c4:	ed93 7a00 	vldr	s14, [r3]
  80016c8:	edd7 7a03 	vldr	s15, [r7, #12]
  80016cc:	ee27 7a27 	vmul.f32	s14, s14, s15
+			+ (1 - inertia_coefficient) * force_feedback;
  80016d0:	eef7 6a00 	vmov.f32	s13, #112	@ 0x3f800000  1.0
  80016d4:	edd7 7a03 	vldr	s15, [r7, #12]
  80016d8:	ee76 6ae7 	vsub.f32	s13, s13, s15
  80016dc:	edd7 7a01 	vldr	s15, [r7, #4]
  80016e0:	ee66 7aa7 	vmul.f32	s15, s13, s15
+	float inertia_force = inertia_coefficient * previous_output
  80016e4:	ee77 7a27 	vadd.f32	s15, s14, s15
  80016e8:	edc7 7a02 	vstr	s15, [r7, #8]
-    previous_output = inertia_force;
+	previous_output = inertia_force;
  80016ec:	4a07      	ldr	r2, [pc, #28]	@ (800170c <calculate_inertia+0x5c>)
  80016ee:	68bb      	ldr	r3, [r7, #8]
  80016f0:	6013      	str	r3, [r2, #0]
-    return inertia_force;
+	return inertia_force;
  80016f2:	68bb      	ldr	r3, [r7, #8]
  80016f4:	ee07 3a90 	vmov	s15, r3
 }
@@ -2469,10 +2472,10 @@ float calculate_damping(float angular_velocity) {
  8001712:	b085      	sub	sp, #20
  8001714:	af00      	add	r7, sp, #0
  8001716:	ed87 0a01 	vstr	s0, [r7, #4]
-    float damping_coefficient = 0.05;
+	float damping_coefficient = 0.05;
  800171a:	4b08      	ldr	r3, [pc, #32]	@ (800173c <calculate_damping+0x2c>)
  800171c:	60fb      	str	r3, [r7, #12]
-    return -damping_coefficient * angular_velocity;
+	return -damping_coefficient * angular_velocity;
  800171e:	edd7 7a03 	vldr	s15, [r7, #12]
  8001722:	eeb1 7a67 	vneg.f32	s14, s15
  8001726:	edd7 7a01 	vldr	s15, [r7, #4]
@@ -2492,30 +2495,30 @@ float calculate_friction(float angular_velocity) {
  8001742:	b085      	sub	sp, #20
  8001744:	af00      	add	r7, sp, #0
  8001746:	ed87 0a01 	vstr	s0, [r7, #4]
-    float friction_coefficient = 0.02;
+	float friction_coefficient = 0.02;
  800174a:	4b10      	ldr	r3, [pc, #64]	@ (800178c <calculate_friction+0x4c>)
  800174c:	60fb      	str	r3, [r7, #12]
-    if (angular_velocity > 0) {
+	if (angular_velocity > 0) {
  800174e:	edd7 7a01 	vldr	s15, [r7, #4]
  8001752:	eef5 7ac0 	vcmpe.f32	s15, #0.0
  8001756:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  800175a:	dd04      	ble.n	8001766 <calculate_friction+0x26>
-        return -friction_coefficient;
+		return -friction_coefficient;
  800175c:	edd7 7a03 	vldr	s15, [r7, #12]
  8001760:	eef1 7a67 	vneg.f32	s15, s15
  8001764:	e00b      	b.n	800177e <calculate_friction+0x3e>
-    } else if (angular_velocity < 0) {
+	} else if (angular_velocity < 0) {
  8001766:	edd7 7a01 	vldr	s15, [r7, #4]
  800176a:	eef5 7ac0 	vcmpe.f32	s15, #0.0
  800176e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001772:	d502      	bpl.n	800177a <calculate_friction+0x3a>
-        return friction_coefficient;
+		return friction_coefficient;
  8001774:	edd7 7a03 	vldr	s15, [r7, #12]
  8001778:	e001      	b.n	800177e <calculate_friction+0x3e>
-    } else {
-        return 0;
+	} else {
+		return 0;
  800177a:	eddf 7a05 	vldr	s15, [pc, #20]	@ 8001790 <calculate_friction+0x50>
-    }
+	}
 }
  800177e:	eeb0 0a67 	vmov.f32	s0, s15
  8001782:	3714      	adds	r7, #20
@@ -2532,19 +2535,19 @@ float calculate_lock(float angle) {
  8001796:	b085      	sub	sp, #20
  8001798:	af00      	add	r7, sp, #0
  800179a:	ed87 0a01 	vstr	s0, [r7, #4]
-    float lock_coefficient = 1.0;
+	float lock_coefficient = 1.0;
  800179e:	f04f 537e 	mov.w	r3, #1065353216	@ 0x3f800000
  80017a2:	60fb      	str	r3, [r7, #12]
-    float max_angle = 450.0;
+	float max_angle = 450.0;
  80017a4:	4b1c      	ldr	r3, [pc, #112]	@ (8001818 <calculate_lock+0x84>)
  80017a6:	60bb      	str	r3, [r7, #8]
-    if (angle > max_angle) {
+	if (angle > max_angle) {
  80017a8:	ed97 7a01 	vldr	s14, [r7, #4]
  80017ac:	edd7 7a02 	vldr	s15, [r7, #8]
  80017b0:	eeb4 7ae7 	vcmpe.f32	s14, s15
  80017b4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  80017b8:	dd0c      	ble.n	80017d4 <calculate_lock+0x40>
-        return -lock_coefficient * (angle - max_angle);
+		return -lock_coefficient * (angle - max_angle);
  80017ba:	edd7 7a03 	vldr	s15, [r7, #12]
  80017be:	eeb1 7a67 	vneg.f32	s14, s15
  80017c2:	edd7 6a01 	vldr	s13, [r7, #4]
@@ -2552,14 +2555,14 @@ float calculate_lock(float angle) {
  80017ca:	ee76 7ae7 	vsub.f32	s15, s13, s15
  80017ce:	ee67 7a27 	vmul.f32	s15, s14, s15
  80017d2:	e019      	b.n	8001808 <calculate_lock+0x74>
-    } else if (angle < -max_angle) {
+	} else if (angle < -max_angle) {
  80017d4:	edd7 7a02 	vldr	s15, [r7, #8]
  80017d8:	eef1 7a67 	vneg.f32	s15, s15
  80017dc:	ed97 7a01 	vldr	s14, [r7, #4]
  80017e0:	eeb4 7ae7 	vcmpe.f32	s14, s15
  80017e4:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  80017e8:	d50c      	bpl.n	8001804 <calculate_lock+0x70>
-        return -lock_coefficient * (angle + max_angle);
+		return -lock_coefficient * (angle + max_angle);
  80017ea:	edd7 7a03 	vldr	s15, [r7, #12]
  80017ee:	eeb1 7a67 	vneg.f32	s14, s15
  80017f2:	edd7 6a01 	vldr	s13, [r7, #4]
@@ -2567,8 +2570,8 @@ float calculate_lock(float angle) {
  80017fa:	ee76 7aa7 	vadd.f32	s15, s13, s15
  80017fe:	ee67 7a27 	vmul.f32	s15, s14, s15
  8001802:	e001      	b.n	8001808 <calculate_lock+0x74>
-    }
-    return 0;
+	}
+	return 0;
  8001804:	eddf 7a05 	vldr	s15, [pc, #20]	@ 800181c <calculate_lock+0x88>
 }
  8001808:	eeb0 0a67 	vmov.f32	s0, s15
@@ -2587,30 +2590,30 @@ float scale_to_pwm(float total_force) {
  8001822:	b086      	sub	sp, #24
  8001824:	af00      	add	r7, sp, #0
  8001826:	ed87 0a01 	vstr	s0, [r7, #4]
-    const float MIN_PWM = 50.0f;    // Minimum PWM value for the motor to start moving
+	const float MIN_PWM = 50.0f; // Minimum PWM value for the motor to start moving
  800182a:	4b2b      	ldr	r3, [pc, #172]	@ (80018d8 <scale_to_pwm+0xb8>)
  800182c:	617b      	str	r3, [r7, #20]
-    const float MAX_PWM = 255.0f;   // Maximum PWM value
+	const float MAX_PWM = 255.0f;   // Maximum PWM value
  800182e:	4b2b      	ldr	r3, [pc, #172]	@ (80018dc <scale_to_pwm+0xbc>)
  8001830:	613b      	str	r3, [r7, #16]
 
-    // If total_force is zero, return zero PWM output
-    if (total_force == 0.0f) {
+	// If total_force is zero, return zero PWM output
+	if (total_force == 0.0f) {
  8001832:	edd7 7a01 	vldr	s15, [r7, #4]
  8001836:	eef5 7a40 	vcmp.f32	s15, #0.0
  800183a:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  800183e:	d106      	bne.n	800184e <scale_to_pwm+0x2e>
-        gPWM = 0.0f;
+		gPWM = 0.0f;
  8001840:	4b27      	ldr	r3, [pc, #156]	@ (80018e0 <scale_to_pwm+0xc0>)
  8001842:	f04f 0200 	mov.w	r2, #0
  8001846:	601a      	str	r2, [r3, #0]
-        return 0.0f;
+		return 0.0f;
  8001848:	f04f 0300 	mov.w	r3, #0
  800184c:	e03c      	b.n	80018c8 <scale_to_pwm+0xa8>
-    }
+	}
 
-    // Calculate PWM output
-    float pwm_output = fabs(total_force) * (MAX_PWM - MIN_PWM) + MIN_PWM;
+	// Calculate PWM output
+	float pwm_output = fabs(total_force) * (MAX_PWM - MIN_PWM) + MIN_PWM;
  800184e:	edd7 7a01 	vldr	s15, [r7, #4]
  8001852:	eef0 7ae7 	vabs.f32	s15, s15
  8001856:	ee17 0a90 	vmov	r0, s15
@@ -2646,21 +2649,21 @@ float scale_to_pwm(float total_force) {
  80018a8:	4603      	mov	r3, r0
  80018aa:	60fb      	str	r3, [r7, #12]
 
-    // Constrain PWM output to valid range
-    pwm_output = constrain(pwm_output, MIN_PWM, MAX_PWM);
+	// Constrain PWM output to valid range
+	pwm_output = constrain(pwm_output, MIN_PWM, MAX_PWM);
  80018ac:	ed97 1a04 	vldr	s2, [r7, #16]
  80018b0:	edd7 0a05 	vldr	s1, [r7, #20]
  80018b4:	ed97 0a03 	vldr	s0, [r7, #12]
  80018b8:	f7ff fed0 	bl	800165c <constrain>
  80018bc:	ed87 0a03 	vstr	s0, [r7, #12]
 
-    // Update debug variable
-    gPWM = pwm_output;
+	// Update debug variable
+	gPWM = pwm_output;
  80018c0:	4a07      	ldr	r2, [pc, #28]	@ (80018e0 <scale_to_pwm+0xc0>)
  80018c2:	68fb      	ldr	r3, [r7, #12]
  80018c4:	6013      	str	r3, [r2, #0]
 
-    return pwm_output;
+	return pwm_output;
  80018c6:	68fb      	ldr	r3, [r7, #12]
 }
  80018c8:	ee07 3a90 	vmov	s15, r3
@@ -2680,14 +2683,14 @@ uint8_t map_wheel_position_to_axis(int32_t position) {
  80018e6:	b085      	sub	sp, #20
  80018e8:	af00      	add	r7, sp, #0
  80018ea:	6078      	str	r0, [r7, #4]
-    int32_t min_position = -450;
+	int32_t min_position = -450;
  80018ec:	4b15      	ldr	r3, [pc, #84]	@ (8001944 <map_wheel_position_to_axis+0x60>)
  80018ee:	60fb      	str	r3, [r7, #12]
-    int32_t max_position = 450;
+	int32_t max_position = 450;
  80018f0:	f44f 73e1 	mov.w	r3, #450	@ 0x1c2
  80018f4:	60bb      	str	r3, [r7, #8]
 
-    // Clamp the position to the valid range
+	// Clamp the position to the valid range
 	if (position < min_position) {
  80018f6:	687a      	ldr	r2, [r7, #4]
  80018f8:	68fb      	ldr	r3, [r7, #12]
@@ -2708,13 +2711,14 @@ uint8_t map_wheel_position_to_axis(int32_t position) {
 	}
 
 	// Reverse the mapping
-	return (uint8_t)((((max_position - position) * 255) + (max_position - min_position) / 2) / (max_position - min_position));
+	return (uint8_t) ((((max_position - position) * 255)
  8001910:	68ba      	ldr	r2, [r7, #8]
  8001912:	687b      	ldr	r3, [r7, #4]
  8001914:	1ad2      	subs	r2, r2, r3
  8001916:	4613      	mov	r3, r2
  8001918:	021b      	lsls	r3, r3, #8
  800191a:	1a9a      	subs	r2, r3, r2
+			+ (max_position - min_position) / 2) / (max_position - min_position));
  800191c:	68b9      	ldr	r1, [r7, #8]
  800191e:	68fb      	ldr	r3, [r7, #12]
  8001920:	1acb      	subs	r3, r1, r3
@@ -2726,6 +2730,7 @@ uint8_t map_wheel_position_to_axis(int32_t position) {
  800192c:	68fb      	ldr	r3, [r7, #12]
  800192e:	1acb      	subs	r3, r1, r3
  8001930:	fb92 f3f3 	sdiv	r3, r2, r3
+	return (uint8_t) ((((max_position - position) * 255)
  8001934:	b2db      	uxtb	r3, r3
 }
  8001936:	4618      	mov	r0, r3
@@ -2741,12 +2746,12 @@ uint8_t map_wheel_position_to_axis(int32_t position) {
 extern void init_encoder() {
  8001948:	b580      	push	{r7, lr}
  800194a:	af00      	add	r7, sp, #0
-    // Start the encoder mode timer
-    HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+	// Start the encoder mode timer
+	HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
  800194c:	213c      	movs	r1, #60	@ 0x3c
  800194e:	4803      	ldr	r0, [pc, #12]	@ (800195c <init_encoder+0x14>)
  8001950:	f005 fbf0 	bl	8007134 <HAL_TIM_Encoder_Start>
-    reset_encoder_position();
+	reset_encoder_position();
  8001954:	f000 f812 	bl	800197c <reset_encoder_position>
 }
  8001958:	bf00      	nop
@@ -2758,7 +2763,7 @@ extern void init_encoder() {
 int16_t read_encoder_position() {
  8001960:	b480      	push	{r7}
  8001962:	af00      	add	r7, sp, #0
-    return __HAL_TIM_GET_COUNTER(&htim2);  // Get the current encoder count
+	return __HAL_TIM_GET_COUNTER(&htim2);  // Get the current encoder count
  8001964:	4b04      	ldr	r3, [pc, #16]	@ (8001978 <read_encoder_position+0x18>)
  8001966:	681b      	ldr	r3, [r3, #0]
  8001968:	6a5b      	ldr	r3, [r3, #36]	@ 0x24
@@ -2776,7 +2781,7 @@ int16_t read_encoder_position() {
 void reset_encoder_position() {
  800197c:	b480      	push	{r7}
  800197e:	af00      	add	r7, sp, #0
-    __HAL_TIM_SET_COUNTER(&htim2, 0);  // Reset the encoder count to zero
+	__HAL_TIM_SET_COUNTER(&htim2, 0);  // Reset the encoder count to zero
  8001980:	4b04      	ldr	r3, [pc, #16]	@ (8001994 <reset_encoder_position+0x18>)
  8001982:	681b      	ldr	r3, [r3, #0]
  8001984:	2200      	movs	r2, #0
@@ -2795,15 +2800,15 @@ float get_angle_degrees() {
  8001998:	b580      	push	{r7, lr}
  800199a:	b082      	sub	sp, #8
  800199c:	af00      	add	r7, sp, #0
-    int16_t position = read_encoder_position();
+	int16_t position = read_encoder_position();
  800199e:	f7ff ffdf 	bl	8001960 <read_encoder_position>
  80019a2:	4603      	mov	r3, r0
  80019a4:	80fb      	strh	r3, [r7, #6]
-    gPosition = position;
+	gPosition = position;
  80019a6:	4a12      	ldr	r2, [pc, #72]	@ (80019f0 <get_angle_degrees+0x58>)
  80019a8:	88fb      	ldrh	r3, [r7, #6]
  80019aa:	8013      	strh	r3, [r2, #0]
-    return (position * 360.0) / ENCODER_RESOLUTION;
+	return (position * 360.0) / ENCODER_RESOLUTION;
  80019ac:	f9b7 3006 	ldrsh.w	r3, [r7, #6]
  80019b0:	4618      	mov	r0, r3
  80019b2:	f7fe fdcf 	bl	8000554 <__aeabi_i2d>
@@ -2836,22 +2841,23 @@ float get_angle_degrees() {
 
 080019fc <update_wheel_position_and_velocity>:
 
-void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
+void update_wheel_position_and_velocity(float *wheel_angle,
+		float *angular_velocity) {
  80019fc:	b580      	push	{r7, lr}
  80019fe:	b086      	sub	sp, #24
  8001a00:	af00      	add	r7, sp, #0
  8001a02:	6078      	str	r0, [r7, #4]
  8001a04:	6039      	str	r1, [r7, #0]
-    // Get the current encoder count
-    float current_angle = get_angle_degrees();
+	// Get the current encoder count
+	float current_angle = get_angle_degrees();
  8001a06:	f7ff ffc7 	bl	8001998 <get_angle_degrees>
  8001a0a:	ed87 0a04 	vstr	s0, [r7, #16]
 
-    // Calculate time difference (in seconds) since the last update
-    uint32_t current_time = HAL_GetTick();  // In milliseconds
+	// Calculate time difference (in seconds) since the last update
+	uint32_t current_time = HAL_GetTick();  // In milliseconds
  8001a0e:	f000 ff85 	bl	800291c <HAL_GetTick>
  8001a12:	60f8      	str	r0, [r7, #12]
-    float dt = (current_time - last_update_time) / 1000.0f;  // Convert ms to seconds
+	float dt = (current_time - last_update_time) / 1000.0f; // Convert ms to seconds
  8001a14:	68fb      	ldr	r3, [r7, #12]
  8001a16:	ee07 3a90 	vmov	s15, r3
  8001a1a:	eeb8 7a67 	vcvt.f32.u32	s14, s15
@@ -2862,94 +2868,96 @@ void update_wheel_position_and_velocity(float *wheel_angle, float *angular_veloc
  8001a2c:	eec7 7a26 	vdiv.f32	s15, s14, s13
  8001a30:	edc7 7a02 	vstr	s15, [r7, #8]
 
-    // Calculate the change in angle
-    float delta_angle = current_angle - last_encoder_count;
+	// Calculate the change in angle
+	float delta_angle = current_angle - last_encoder_count;
  8001a34:	4b3c      	ldr	r3, [pc, #240]	@ (8001b28 <update_wheel_position_and_velocity+0x12c>)
  8001a36:	edd3 7a00 	vldr	s15, [r3]
  8001a3a:	ed97 7a04 	vldr	s14, [r7, #16]
  8001a3e:	ee77 7a67 	vsub.f32	s15, s14, s15
  8001a42:	edc7 7a05 	vstr	s15, [r7, #20]
 
-    // Implement a threshold to ignore small changes
-    if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
+	// Implement a threshold to ignore small changes
+	if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
  8001a46:	edd7 7a05 	vldr	s15, [r7, #20]
  8001a4a:	eef0 7ae7 	vabs.f32	s15, s15
  8001a4e:	eeb5 7a00 	vmov.f32	s14, #80	@ 0x3e800000  0.250
  8001a52:	eef4 7ac7 	vcmpe.f32	s15, s14
  8001a56:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001a5a:	d502      	bpl.n	8001a62 <update_wheel_position_and_velocity+0x66>
-        delta_angle = 0.0f;
+		delta_angle = 0.0f;
  8001a5c:	f04f 0300 	mov.w	r3, #0
  8001a60:	617b      	str	r3, [r7, #20]
-    }
+	}
 
-    // Update the wheel angle, keeping within the lock limit
-    *wheel_angle += delta_angle;
+	// Update the wheel angle, keeping within the lock limit
+	*wheel_angle += delta_angle;
  8001a62:	687b      	ldr	r3, [r7, #4]
  8001a64:	ed93 7a00 	vldr	s14, [r3]
  8001a68:	edd7 7a05 	vldr	s15, [r7, #20]
  8001a6c:	ee77 7a27 	vadd.f32	s15, s14, s15
  8001a70:	687b      	ldr	r3, [r7, #4]
  8001a72:	edc3 7a00 	vstr	s15, [r3]
-    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
+	if (*wheel_angle > WHEEL_MAX_ANGLE)
  8001a76:	687b      	ldr	r3, [r7, #4]
  8001a78:	edd3 7a00 	vldr	s15, [r3]
  8001a7c:	ed9f 7a2b 	vldr	s14, [pc, #172]	@ 8001b2c <update_wheel_position_and_velocity+0x130>
  8001a80:	eef4 7ac7 	vcmpe.f32	s15, s14
  8001a84:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001a88:	dd02      	ble.n	8001a90 <update_wheel_position_and_velocity+0x94>
+		*wheel_angle = WHEEL_MAX_ANGLE;
  8001a8a:	687b      	ldr	r3, [r7, #4]
  8001a8c:	4a28      	ldr	r2, [pc, #160]	@ (8001b30 <update_wheel_position_and_velocity+0x134>)
  8001a8e:	601a      	str	r2, [r3, #0]
-    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
+	if (*wheel_angle < -WHEEL_MAX_ANGLE)
  8001a90:	687b      	ldr	r3, [r7, #4]
  8001a92:	edd3 7a00 	vldr	s15, [r3]
  8001a96:	ed9f 7a27 	vldr	s14, [pc, #156]	@ 8001b34 <update_wheel_position_and_velocity+0x138>
  8001a9a:	eef4 7ac7 	vcmpe.f32	s15, s14
  8001a9e:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001aa2:	d502      	bpl.n	8001aaa <update_wheel_position_and_velocity+0xae>
+		*wheel_angle = -WHEEL_MAX_ANGLE;
  8001aa4:	687b      	ldr	r3, [r7, #4]
  8001aa6:	4a24      	ldr	r2, [pc, #144]	@ (8001b38 <update_wheel_position_and_velocity+0x13c>)
  8001aa8:	601a      	str	r2, [r3, #0]
 
-    gDelta = delta_angle;
+	gDelta = delta_angle;
  8001aaa:	4a24      	ldr	r2, [pc, #144]	@ (8001b3c <update_wheel_position_and_velocity+0x140>)
  8001aac:	697b      	ldr	r3, [r7, #20]
  8001aae:	6013      	str	r3, [r2, #0]
-    // Calculate angular velocity (degrees per second)
-    if (dt > 0.0001f) {  // Avoid division by zero
+	// Calculate angular velocity (degrees per second)
+	if (dt > 0.0001f) {  // Avoid division by zero
  8001ab0:	edd7 7a02 	vldr	s15, [r7, #8]
  8001ab4:	ed9f 7a22 	vldr	s14, [pc, #136]	@ 8001b40 <update_wheel_position_and_velocity+0x144>
  8001ab8:	eef4 7ac7 	vcmpe.f32	s15, s14
  8001abc:	eef1 fa10 	vmrs	APSR_nzcv, fpscr
  8001ac0:	dd09      	ble.n	8001ad6 <update_wheel_position_and_velocity+0xda>
-        *angular_velocity = delta_angle / dt;
+		*angular_velocity = delta_angle / dt;
  8001ac2:	edd7 6a05 	vldr	s13, [r7, #20]
  8001ac6:	ed97 7a02 	vldr	s14, [r7, #8]
  8001aca:	eec6 7a87 	vdiv.f32	s15, s13, s14
  8001ace:	683b      	ldr	r3, [r7, #0]
  8001ad0:	edc3 7a00 	vstr	s15, [r3]
  8001ad4:	e003      	b.n	8001ade <update_wheel_position_and_velocity+0xe2>
-    } else {
-        *angular_velocity = 0.0f;
+	} else {
+		*angular_velocity = 0.0f;
  8001ad6:	683b      	ldr	r3, [r7, #0]
  8001ad8:	f04f 0200 	mov.w	r2, #0
  8001adc:	601a      	str	r2, [r3, #0]
-    }
+	}
 
-    // Store the current values for the next update
-    last_encoder_count = current_angle;
+	// Store the current values for the next update
+	last_encoder_count = current_angle;
  8001ade:	4a12      	ldr	r2, [pc, #72]	@ (8001b28 <update_wheel_position_and_velocity+0x12c>)
  8001ae0:	693b      	ldr	r3, [r7, #16]
  8001ae2:	6013      	str	r3, [r2, #0]
-    last_update_time = current_time;
+	last_update_time = current_time;
  8001ae4:	68fb      	ldr	r3, [r7, #12]
  8001ae6:	ee07 3a90 	vmov	s15, r3
  8001aea:	eef8 7a67 	vcvt.f32.u32	s15, s15
  8001aee:	4b0c      	ldr	r3, [pc, #48]	@ (8001b20 <update_wheel_position_and_velocity+0x124>)
  8001af0:	edc3 7a00 	vstr	s15, [r3]
 
-    gSteering = map_wheel_position_to_axis(*wheel_angle);
+	gSteering = map_wheel_position_to_axis(*wheel_angle);
  8001af4:	687b      	ldr	r3, [r7, #4]
  8001af6:	edd3 7a00 	vldr	s15, [r3]
  8001afa:	eefd 7ae7 	vcvt.s32.f32	s15, s15
@@ -2979,7 +2987,6 @@ void update_wheel_position_and_velocity(float *wheel_angle, float *angular_veloc
 
 08001b48 <set_motor_pwm>:
 
-
 void set_motor_pwm(float pwm_value, uint8_t direction) {
  8001b48:	b5b0      	push	{r4, r5, r7, lr}
  8001b4a:	b084      	sub	sp, #16
@@ -2987,8 +2994,8 @@ void set_motor_pwm(float pwm_value, uint8_t direction) {
  8001b4e:	ed87 0a01 	vstr	s0, [r7, #4]
  8001b52:	4603      	mov	r3, r0
  8001b54:	70fb      	strb	r3, [r7, #3]
-    // Assuming pwm_value ranges from 0 to 255
-    uint32_t pulse = (uint32_t)((pwm_value / 255.0) * htim3.Init.Period);
+	// Assuming pwm_value ranges from 0 to 255
+	uint32_t pulse = (uint32_t) ((pwm_value / 255.0) * htim3.Init.Period);
  8001b56:	6878      	ldr	r0, [r7, #4]
  8001b58:	f7fe fd0e 	bl	8000578 <__aeabi_f2d>
  8001b5c:	a321      	add	r3, pc, #132	@ (adr r3, 8001be4 <set_motor_pwm+0x9c>)
@@ -3015,16 +3022,16 @@ void set_motor_pwm(float pwm_value, uint8_t direction) {
  8001b90:	4603      	mov	r3, r0
  8001b92:	60fb      	str	r3, [r7, #12]
 
-    if (direction == 1) { // Forward
+	if (direction == 1) { // Forward
  8001b94:	78fb      	ldrb	r3, [r7, #3]
  8001b96:	2b01      	cmp	r3, #1
  8001b98:	d108      	bne.n	8001bac <set_motor_pwm+0x64>
-    	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse);
  8001b9a:	4b11      	ldr	r3, [pc, #68]	@ (8001be0 <set_motor_pwm+0x98>)
  8001b9c:	681b      	ldr	r3, [r3, #0]
  8001b9e:	68fa      	ldr	r2, [r7, #12]
  8001ba0:	635a      	str	r2, [r3, #52]	@ 0x34
-    	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
  8001ba2:	4b0f      	ldr	r3, [pc, #60]	@ (8001be0 <set_motor_pwm+0x98>)
  8001ba4:	681b      	ldr	r3, [r3, #0]
  8001ba6:	2200      	movs	r2, #0
@@ -3084,11 +3091,11 @@ extern void signalTelemetryTask(uint8_t *Buf, uint32_t Len) {
  8001bf0:	af00      	add	r7, sp, #0
  8001bf2:	6078      	str	r0, [r7, #4]
  8001bf4:	6039      	str	r1, [r7, #0]
-	if (Len == sizeof(telemetry_packet))  // Verify the data size matches the struct size
+	if (Len == sizeof(telemetry_packet)) // Verify the data size matches the struct size
  8001bf6:	683b      	ldr	r3, [r7, #0]
  8001bf8:	2b28      	cmp	r3, #40	@ 0x28
  8001bfa:	d11a      	bne.n	8001c32 <signalTelemetryTask+0x46>
-	{
+			{
 		// Process the received data (rx_buffer)
 		memcpy(&telemetry_data, Buf, sizeof(telemetry_data));
  8001bfc:	4a0f      	ldr	r2, [pc, #60]	@ (8001c3c <signalTelemetryTask+0x50>)
@@ -3130,36 +3137,36 @@ extern void signalTelemetryTask(uint8_t *Buf, uint32_t Len) {
 
 08001c48 <read_hall_sensor>:
 
-    // Stop Motor
-    set_motor_pwm(0, 0);
+	// Stop Motor
+	set_motor_pwm(0, 0);
 }
 
 float read_hall_sensor() {
  8001c48:	b580      	push	{r7, lr}
  8001c4a:	b082      	sub	sp, #8
  8001c4c:	af00      	add	r7, sp, #0
-    uint32_t adc_value = 0;
+	uint32_t adc_value = 0;
  8001c4e:	2300      	movs	r3, #0
  8001c50:	607b      	str	r3, [r7, #4]
-    HAL_ADC_Start(&hadc1);
+	HAL_ADC_Start(&hadc1);
  8001c52:	481b      	ldr	r0, [pc, #108]	@ (8001cc0 <read_hall_sensor+0x78>)
  8001c54:	f000 fed6 	bl	8002a04 <HAL_ADC_Start>
-    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
+	if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
  8001c58:	f04f 31ff 	mov.w	r1, #4294967295
  8001c5c:	4818      	ldr	r0, [pc, #96]	@ (8001cc0 <read_hall_sensor+0x78>)
  8001c5e:	f000 ffd6 	bl	8002c0e <HAL_ADC_PollForConversion>
  8001c62:	4603      	mov	r3, r0
  8001c64:	2b00      	cmp	r3, #0
  8001c66:	d103      	bne.n	8001c70 <read_hall_sensor+0x28>
-        adc_value = HAL_ADC_GetValue(&hadc1);
+		adc_value = HAL_ADC_GetValue(&hadc1);
  8001c68:	4815      	ldr	r0, [pc, #84]	@ (8001cc0 <read_hall_sensor+0x78>)
  8001c6a:	f001 f85b 	bl	8002d24 <HAL_ADC_GetValue>
  8001c6e:	6078      	str	r0, [r7, #4]
-    }
-    HAL_ADC_Stop(&hadc1);
+	}
+	HAL_ADC_Stop(&hadc1);
  8001c70:	4813      	ldr	r0, [pc, #76]	@ (8001cc0 <read_hall_sensor+0x78>)
  8001c72:	f000 ff99 	bl	8002ba8 <HAL_ADC_Stop>
-    return (adc_value * ADC_MAX_VOLTAGE) / ADC_RESOLUTION;
+	return (adc_value * ADC_MAX_VOLTAGE) / ADC_RESOLUTION;
  8001c76:	6878      	ldr	r0, [r7, #4]
  8001c78:	f7fe fc5c 	bl	8000534 <__aeabi_ui2d>
  8001c7c:	a30e      	add	r3, pc, #56	@ (adr r3, 8001cb8 <read_hall_sensor+0x70>)
@@ -3192,20 +3199,20 @@ float read_hall_sensor() {
 
 08001cc8 <processCAN>:
 
-    // Stop Motor
-    set_motor_pwm(0, 0);
+	// Stop Motor
+	set_motor_pwm(0, 0);
 }
 
 void processCAN() {
  8001cc8:	b580      	push	{r7, lr}
  8001cca:	b08a      	sub	sp, #40	@ 0x28
  8001ccc:	af00      	add	r7, sp, #0
-    CAN_RxHeaderTypeDef RxHeader;
-    uint8_t RxData[8];
+	CAN_RxHeaderTypeDef RxHeader;
+	uint8_t RxData[8];
 
-    while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
+	while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
  8001cce:	e08d      	b.n	8001dec <processCAN+0x124>
-        if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &RxHeader, RxData) == HAL_OK) {
+		if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &RxHeader, RxData)
  8001cd0:	463b      	mov	r3, r7
  8001cd2:	f107 0208 	add.w	r2, r7, #8
  8001cd6:	2101      	movs	r1, #1
@@ -3214,12 +3221,13 @@ void processCAN() {
  8001cde:	4603      	mov	r3, r0
  8001ce0:	2b00      	cmp	r3, #0
  8001ce2:	f040 8083 	bne.w	8001dec <processCAN+0x124>
-            int32_t value = 0;
+				== HAL_OK) {
+			int32_t value = 0;
  8001ce6:	2300      	movs	r3, #0
  8001ce8:	627b      	str	r3, [r7, #36]	@ 0x24
 
-            // If the received message is for pedals, only use 2 bytes (int16_t)
-            if (RxHeader.StdId >= 0x300 && RxHeader.StdId <= 0x302) {
+			// If the received message is for pedals, only use 2 bytes (int16_t)
+			if (RxHeader.StdId >= 0x300 && RxHeader.StdId <= 0x302) {
  8001cea:	68bb      	ldr	r3, [r7, #8]
  8001cec:	f5b3 7f40 	cmp.w	r3, #768	@ 0x300
  8001cf0:	d30d      	bcc.n	8001d0e <processCAN+0x46>
@@ -3227,45 +3235,39 @@ void processCAN() {
  8001cf4:	f240 3202 	movw	r2, #770	@ 0x302
  8001cf8:	4293      	cmp	r3, r2
  8001cfa:	d808      	bhi.n	8001d0e <processCAN+0x46>
-                value = (int16_t)(
-                    ((uint16_t)RxData[0]) |
+				value = (int16_t) (((uint16_t) RxData[0])
  8001cfc:	783b      	ldrb	r3, [r7, #0]
  8001cfe:	b21a      	sxth	r2, r3
-                    ((uint16_t)RxData[1] << 8)  // Combine 2 bytes into int16_t
+						| ((uint16_t) RxData[1] << 8) // Combine 2 bytes into int16_t
  8001d00:	787b      	ldrb	r3, [r7, #1]
  8001d02:	021b      	lsls	r3, r3, #8
-                value = (int16_t)(
+				value = (int16_t) (((uint16_t) RxData[0])
  8001d04:	b21b      	sxth	r3, r3
  8001d06:	4313      	orrs	r3, r2
  8001d08:	b21b      	sxth	r3, r3
  8001d0a:	627b      	str	r3, [r7, #36]	@ 0x24
  8001d0c:	e00b      	b.n	8001d26 <processCAN+0x5e>
-                );
-            } else {
-                // Steering Wheel Messages (4-byte int32_t)
-                value = (int32_t)(
-                    ((uint32_t)RxData[0]) |
+				);
+			} else {
+				// Steering Wheel Messages (4-byte int32_t)
+				value = (int32_t) (((uint32_t) RxData[0])
  8001d0e:	783b      	ldrb	r3, [r7, #0]
  8001d10:	461a      	mov	r2, r3
-                    ((uint32_t)RxData[1] << 8) |
+						| ((uint32_t) RxData[1] << 8)
  8001d12:	787b      	ldrb	r3, [r7, #1]
  8001d14:	021b      	lsls	r3, r3, #8
-                    ((uint32_t)RxData[0]) |
  8001d16:	431a      	orrs	r2, r3
-                    ((uint32_t)RxData[2] << 16) |
+						| ((uint32_t) RxData[2] << 16)
  8001d18:	78bb      	ldrb	r3, [r7, #2]
  8001d1a:	041b      	lsls	r3, r3, #16
-                    ((uint32_t)RxData[1] << 8) |
  8001d1c:	431a      	orrs	r2, r3
-                    ((uint32_t)RxData[3] << 24)
+						| ((uint32_t) RxData[3] << 24));
  8001d1e:	78fb      	ldrb	r3, [r7, #3]
  8001d20:	061b      	lsls	r3, r3, #24
-                    ((uint32_t)RxData[2] << 16) |
  8001d22:	4313      	orrs	r3, r2
-                value = (int32_t)(
+				value = (int32_t) (((uint32_t) RxData[0])
  8001d24:	627b      	str	r3, [r7, #36]	@ 0x24
-                );
-            }
+			}
 
 			switch (RxHeader.StdId) {
  8001d26:	68bb      	ldr	r3, [r7, #8]
@@ -3296,81 +3298,93 @@ void processCAN() {
  8001d6a:	f240 2201 	movw	r2, #513	@ 0x201
  8001d6e:	4293      	cmp	r3, r2
  8001d70:	d009      	beq.n	8001d86 <processCAN+0xbe>
-
-				// Pedals
-				case 0x300: pedal_data.encoder_1 = (int16_t)value; gDebugCounter2++; break;
-				case 0x301: pedal_data.encoder_2 = (int16_t)value; gDebugCounter2++;  break;
-				case 0x302: pedal_data.encoder_3 = (int16_t)value; gDebugCounter2++; break;
-				default: break;
+			case 0x302:
+				pedal_data.encoder_3 = (int16_t) value;
+				gDebugCounter2++;
+				break;
+			default:
+				break;
  8001d72:	e03a      	b.n	8001dea <processCAN+0x122>
-				case 0x200: user_input_data.buttons = (uint32_t)value; gDebugCounter1++; break;
+				user_input_data.buttons = (uint32_t) value;
  8001d74:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
  8001d76:	4a25      	ldr	r2, [pc, #148]	@ (8001e0c <processCAN+0x144>)
  8001d78:	6013      	str	r3, [r2, #0]
+				gDebugCounter1++;
  8001d7a:	4b25      	ldr	r3, [pc, #148]	@ (8001e10 <processCAN+0x148>)
  8001d7c:	681b      	ldr	r3, [r3, #0]
  8001d7e:	3301      	adds	r3, #1
  8001d80:	4a23      	ldr	r2, [pc, #140]	@ (8001e10 <processCAN+0x148>)
  8001d82:	6013      	str	r3, [r2, #0]
+				break;
  8001d84:	e032      	b.n	8001dec <processCAN+0x124>
-				case 0x201: user_input_data.hall_analog_1 = (uint8_t)value; gDebugCounter1++; break;
+				user_input_data.hall_analog_1 = (uint8_t) value;
  8001d86:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
  8001d88:	b2da      	uxtb	r2, r3
  8001d8a:	4b20      	ldr	r3, [pc, #128]	@ (8001e0c <processCAN+0x144>)
  8001d8c:	711a      	strb	r2, [r3, #4]
+				gDebugCounter1++;
  8001d8e:	4b20      	ldr	r3, [pc, #128]	@ (8001e10 <processCAN+0x148>)
  8001d90:	681b      	ldr	r3, [r3, #0]
  8001d92:	3301      	adds	r3, #1
  8001d94:	4a1e      	ldr	r2, [pc, #120]	@ (8001e10 <processCAN+0x148>)
  8001d96:	6013      	str	r3, [r2, #0]
+				break;
  8001d98:	e028      	b.n	8001dec <processCAN+0x124>
-				case 0x202: user_input_data.hall_analog_2 = (uint8_t)value; gDebugCounter1++; break;
+				user_input_data.hall_analog_2 = (uint8_t) value;
  8001d9a:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
  8001d9c:	b2da      	uxtb	r2, r3
  8001d9e:	4b1b      	ldr	r3, [pc, #108]	@ (8001e0c <processCAN+0x144>)
  8001da0:	715a      	strb	r2, [r3, #5]
+				gDebugCounter1++;
  8001da2:	4b1b      	ldr	r3, [pc, #108]	@ (8001e10 <processCAN+0x148>)
  8001da4:	681b      	ldr	r3, [r3, #0]
  8001da6:	3301      	adds	r3, #1
  8001da8:	4a19      	ldr	r2, [pc, #100]	@ (8001e10 <processCAN+0x148>)
  8001daa:	6013      	str	r3, [r2, #0]
+				break;
  8001dac:	e01e      	b.n	8001dec <processCAN+0x124>
-				case 0x300: pedal_data.encoder_1 = (int16_t)value; gDebugCounter2++; break;
+				pedal_data.encoder_1 = (int16_t) value;
  8001dae:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
  8001db0:	b21a      	sxth	r2, r3
  8001db2:	4b18      	ldr	r3, [pc, #96]	@ (8001e14 <processCAN+0x14c>)
  8001db4:	801a      	strh	r2, [r3, #0]
+				gDebugCounter2++;
  8001db6:	4b18      	ldr	r3, [pc, #96]	@ (8001e18 <processCAN+0x150>)
  8001db8:	681b      	ldr	r3, [r3, #0]
  8001dba:	3301      	adds	r3, #1
  8001dbc:	4a16      	ldr	r2, [pc, #88]	@ (8001e18 <processCAN+0x150>)
  8001dbe:	6013      	str	r3, [r2, #0]
+				break;
  8001dc0:	e014      	b.n	8001dec <processCAN+0x124>
-				case 0x301: pedal_data.encoder_2 = (int16_t)value; gDebugCounter2++;  break;
+				pedal_data.encoder_2 = (int16_t) value;
  8001dc2:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
  8001dc4:	b21a      	sxth	r2, r3
  8001dc6:	4b13      	ldr	r3, [pc, #76]	@ (8001e14 <processCAN+0x14c>)
  8001dc8:	805a      	strh	r2, [r3, #2]
+				gDebugCounter2++;
  8001dca:	4b13      	ldr	r3, [pc, #76]	@ (8001e18 <processCAN+0x150>)
  8001dcc:	681b      	ldr	r3, [r3, #0]
  8001dce:	3301      	adds	r3, #1
  8001dd0:	4a11      	ldr	r2, [pc, #68]	@ (8001e18 <processCAN+0x150>)
  8001dd2:	6013      	str	r3, [r2, #0]
+				break;
  8001dd4:	e00a      	b.n	8001dec <processCAN+0x124>
-				case 0x302: pedal_data.encoder_3 = (int16_t)value; gDebugCounter2++; break;
+				pedal_data.encoder_3 = (int16_t) value;
  8001dd6:	6a7b      	ldr	r3, [r7, #36]	@ 0x24
  8001dd8:	b21a      	sxth	r2, r3
  8001dda:	4b0e      	ldr	r3, [pc, #56]	@ (8001e14 <processCAN+0x14c>)
  8001ddc:	809a      	strh	r2, [r3, #4]
+				gDebugCounter2++;
  8001dde:	4b0e      	ldr	r3, [pc, #56]	@ (8001e18 <processCAN+0x150>)
  8001de0:	681b      	ldr	r3, [r3, #0]
  8001de2:	3301      	adds	r3, #1
  8001de4:	4a0c      	ldr	r2, [pc, #48]	@ (8001e18 <processCAN+0x150>)
  8001de6:	6013      	str	r3, [r2, #0]
+				break;
  8001de8:	e000      	b.n	8001dec <processCAN+0x124>
-				default: break;
+				break;
  8001dea:	bf00      	nop
-    while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
+	while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
  8001dec:	2101      	movs	r1, #1
  8001dee:	4806      	ldr	r0, [pc, #24]	@ (8001e08 <processCAN+0x140>)
  8001df0:	f001 fe2f 	bl	8003a52 <HAL_CAN_GetRxFifoFillLevel>
@@ -23815,13 +23829,13 @@ static int8_t CDC_Receive(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len)
  800951c:	73fb      	strb	r3, [r7, #15]
   /* USER CODE BEGIN 6 */
   //HAL_UART_Transmit_DMA(CDC_CH_To_UART_Handle(cdc_ch), Buf, *Len);
-  CDC_Transmit(cdc_ch, Buf, *Len); // echo back on same channel
+  signalTelemetryTask(Buf, *Len);
  800951e:	687b      	ldr	r3, [r7, #4]
  8009520:	681b      	ldr	r3, [r3, #0]
  8009522:	4619      	mov	r1, r3
  8009524:	68b8      	ldr	r0, [r7, #8]
  8009526:	f7f8 fb61 	bl	8001bec <signalTelemetryTask>
-
+  CDC_Transmit(cdc_ch, Buf, *Len); // echo back on same channel
  800952a:	687b      	ldr	r3, [r7, #4]
  800952c:	681b      	ldr	r3, [r3, #0]
  800952e:	b29a      	uxth	r2, r3
@@ -23829,22 +23843,22 @@ static int8_t CDC_Receive(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len)
  8009532:	68b9      	ldr	r1, [r7, #8]
  8009534:	4618      	mov	r0, r3
  8009536:	f000 f825 	bl	8009584 <CDC_Transmit>
+
   USBD_CDC_SetRxBuffer(cdc_ch, &hUsbDevice, &Buf[0]);
-  USBD_CDC_ReceivePacket(cdc_ch, &hUsbDevice);
  800953a:	7bfb      	ldrb	r3, [r7, #15]
  800953c:	68ba      	ldr	r2, [r7, #8]
  800953e:	4907      	ldr	r1, [pc, #28]	@ (800955c <CDC_Receive+0x4c>)
  8009540:	4618      	mov	r0, r3
  8009542:	f000 fd5d 	bl	800a000 <USBD_CDC_SetRxBuffer>
-  return (USBD_OK);
+  USBD_CDC_ReceivePacket(cdc_ch, &hUsbDevice);
  8009546:	7bfb      	ldrb	r3, [r7, #15]
  8009548:	4904      	ldr	r1, [pc, #16]	@ (800955c <CDC_Receive+0x4c>)
  800954a:	4618      	mov	r0, r3
  800954c:	f000 fdb8 	bl	800a0c0 <USBD_CDC_ReceivePacket>
-  /* USER CODE END 6 */
+  return (USBD_OK);
  8009550:	2300      	movs	r3, #0
+  /* USER CODE END 6 */
 }
-
  8009552:	4618      	mov	r0, r3
  8009554:	3710      	adds	r7, #16
  8009556:	46bd      	mov	sp, r7
@@ -23853,12 +23867,12 @@ static int8_t CDC_Receive(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len)
  800955c:	20000cb0 	.word	0x20000cb0
 
 08009560 <CDC_TransmitCplt>:
+  * @param  Buf: Buffer of data to be received
   * @param  Len: Number of data received (in bytes)
   * @retval Result of the operation: USBD_OK if all operations are OK else USBD_FAIL
   */
 static int8_t CDC_TransmitCplt(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len, uint8_t epnum)
 {
-  return (USBD_OK);
  8009560:	b480      	push	{r7}
  8009562:	b085      	sub	sp, #20
  8009564:	af00      	add	r7, sp, #0
@@ -23869,9 +23883,9 @@ static int8_t CDC_TransmitCplt(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len, uint
  800956e:	73fb      	strb	r3, [r7, #15]
  8009570:	4613      	mov	r3, r2
  8009572:	73bb      	strb	r3, [r7, #14]
-}
+  return (USBD_OK);
  8009574:	2300      	movs	r3, #0
-
+}
  8009576:	4618      	mov	r0, r3
  8009578:	3714      	adds	r7, #20
  800957a:	46bd      	mov	sp, r7
@@ -23880,12 +23894,12 @@ static int8_t CDC_TransmitCplt(uint8_t cdc_ch, uint8_t *Buf, uint32_t *Len, uint
 	...
 
 08009584 <CDC_Transmit>:
+  * @param  Buf: Buffer of data to be sent
   * @param  Len: Number of data to be sent (in bytes)
   * @retval USBD_OK if all operations are OK else USBD_FAIL or USBD_BUSY
   */
 uint8_t CDC_Transmit(uint8_t ch, uint8_t *Buf, uint16_t Len)
 {
-  uint8_t result = USBD_OK;
  8009584:	b580      	push	{r7, lr}
  8009586:	b084      	sub	sp, #16
  8009588:	af00      	add	r7, sp, #0
@@ -23894,48 +23908,48 @@ uint8_t CDC_Transmit(uint8_t ch, uint8_t *Buf, uint16_t Len)
  800958e:	71fb      	strb	r3, [r7, #7]
  8009590:	4613      	mov	r3, r2
  8009592:	80bb      	strh	r3, [r7, #4]
-  /* USER CODE BEGIN 7 */
+  uint8_t result = USBD_OK;
  8009594:	2300      	movs	r3, #0
  8009596:	73fb      	strb	r3, [r7, #15]
+  /* USER CODE BEGIN 7 */
   extern USBD_CDC_ACM_HandleTypeDef CDC_ACM_Class_Data[];
   USBD_CDC_ACM_HandleTypeDef *hcdc = NULL;
-  hcdc = &CDC_ACM_Class_Data[ch];
  8009598:	2300      	movs	r3, #0
  800959a:	60bb      	str	r3, [r7, #8]
-  if (hcdc->TxState != 0)
+  hcdc = &CDC_ACM_Class_Data[ch];
  800959c:	79fb      	ldrb	r3, [r7, #7]
  800959e:	f44f 7207 	mov.w	r2, #540	@ 0x21c
  80095a2:	fb02 f303 	mul.w	r3, r2, r3
  80095a6:	4a0e      	ldr	r2, [pc, #56]	@ (80095e0 <CDC_Transmit+0x5c>)
  80095a8:	4413      	add	r3, r2
  80095aa:	60bb      	str	r3, [r7, #8]
-  {
+  if (hcdc->TxState != 0)
  80095ac:	68bb      	ldr	r3, [r7, #8]
  80095ae:	f8d3 3214 	ldr.w	r3, [r3, #532]	@ 0x214
  80095b2:	2b00      	cmp	r3, #0
  80095b4:	d001      	beq.n	80095ba <CDC_Transmit+0x36>
+  {
     return USBD_BUSY;
-  }
  80095b6:	2301      	movs	r3, #1
  80095b8:	e00d      	b.n	80095d6 <CDC_Transmit+0x52>
+  }
   USBD_CDC_SetTxBuffer(ch, &hUsbDevice, Buf, Len);
-  result = USBD_CDC_TransmitPacket(ch, &hUsbDevice);
  80095ba:	88bb      	ldrh	r3, [r7, #4]
  80095bc:	79f8      	ldrb	r0, [r7, #7]
  80095be:	683a      	ldr	r2, [r7, #0]
  80095c0:	4908      	ldr	r1, [pc, #32]	@ (80095e4 <CDC_Transmit+0x60>)
  80095c2:	f000 fcf9 	bl	8009fb8 <USBD_CDC_SetTxBuffer>
-  /* USER CODE END 7 */
+  result = USBD_CDC_TransmitPacket(ch, &hUsbDevice);
  80095c6:	79fb      	ldrb	r3, [r7, #7]
  80095c8:	4906      	ldr	r1, [pc, #24]	@ (80095e4 <CDC_Transmit+0x60>)
  80095ca:	4618      	mov	r0, r3
  80095cc:	f000 fd36 	bl	800a03c <USBD_CDC_TransmitPacket>
  80095d0:	4603      	mov	r3, r0
  80095d2:	73fb      	strb	r3, [r7, #15]
+  /* USER CODE END 7 */
   return result;
-}
  80095d4:	7bfb      	ldrb	r3, [r7, #15]
-
+}
  80095d6:	4618      	mov	r0, r3
  80095d8:	3710      	adds	r7, #16
  80095da:	46bd      	mov	sp, r7
@@ -24346,50 +24360,50 @@ static void IntToUnicode(uint32_t value, uint8_t * pbuf, uint8_t len)
  8009804:	4770      	bx	lr
 
 08009806 <CUSTOM_HID_Init>:
+/**
+  * @brief  Initializes the CUSTOM HID media low layer
+  * @retval USBD_OK if all operations are OK else USBD_FAIL
+  */
+static int8_t CUSTOM_HID_Init(void)
 {
-  /* USER CODE BEGIN 6 */
-  //memcpy(buffer, state, 0x40);
-  //USBD_CUSTOM_HID_SendReport(&hUsbDevice, (uint8_t *)buffer, 0x40);
-  return (USBD_OK);
-  /* USER CODE END 6 */
  8009806:	b480      	push	{r7}
  8009808:	af00      	add	r7, sp, #0
-}
-
+  /* USER CODE BEGIN 4 */
+  return (USBD_OK);
  800980a:	2300      	movs	r3, #0
-/* USER CODE BEGIN 7 */
-/**
+  /* USER CODE END 4 */
+}
  800980c:	4618      	mov	r0, r3
  800980e:	46bd      	mov	sp, r7
  8009810:	f85d 7b04 	ldr.w	r7, [sp], #4
  8009814:	4770      	bx	lr
 
 08009816 <CUSTOM_HID_DeInit>:
-  * @param  report: The report to be sent
-  * @param  len: The report length
+/**
+  * @brief  DeInitializes the CUSTOM HID media low layer
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
-/*
-static int8_t USBD_CUSTOM_HID_SendReport(uint8_t *report, uint16_t len)
+static int8_t CUSTOM_HID_DeInit(void)
+{
  8009816:	b480      	push	{r7}
  8009818:	af00      	add	r7, sp, #0
-{
-  return USBD_CUSTOM_HID_SendReport(&hUsbDevice, report, len);
+  /* USER CODE BEGIN 5 */
+  return (USBD_OK);
  800981a:	2300      	movs	r3, #0
+  /* USER CODE END 5 */
 }
-*/
  800981c:	4618      	mov	r0, r3
  800981e:	46bd      	mov	sp, r7
  8009820:	f85d 7b04 	ldr.w	r7, [sp], #4
  8009824:	4770      	bx	lr
 
 08009826 <CUSTOM_HID_OutEvent>:
-
-/* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
-/**
-  * @}
+  * @param  event_idx: Event index
+  * @param  state: Event state
+  * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
-
+static int8_t CUSTOM_HID_OutEvent(uint8_t event_idx, uint8_t state)
+{
  8009826:	b480      	push	{r7}
  8009828:	b083      	sub	sp, #12
  800982a:	af00      	add	r7, sp, #0
@@ -24398,13 +24412,13 @@ static int8_t USBD_CUSTOM_HID_SendReport(uint8_t *report, uint16_t len)
  8009830:	71fb      	strb	r3, [r7, #7]
  8009832:	4613      	mov	r3, r2
  8009834:	71bb      	strb	r3, [r7, #6]
-/**
-  * @}
-  */
-
+  /* USER CODE BEGIN 6 */
+  //memcpy(buffer, state, 0x40);
+  //USBD_CUSTOM_HID_SendReport(&hUsbDevice, (uint8_t *)buffer, 0x40);
+  return (USBD_OK);
  8009836:	2300      	movs	r3, #0
-/**
-  * @}
+  /* USER CODE END 6 */
+}
  8009838:	4618      	mov	r0, r3
  800983a:	370c      	adds	r7, #12
  800983c:	46bd      	mov	sp, r7
@@ -24412,12 +24426,19 @@ static int8_t USBD_CUSTOM_HID_SendReport(uint8_t *report, uint16_t len)
  8009842:	4770      	bx	lr
 
 08009844 <USBD_CUSTOM_HID_SendCustomReport>:
+  * @param  len: The report length
+  * @retval USBD_OK if all operations are OK else USBD_FAIL
+  */
+
+int8_t USBD_CUSTOM_HID_SendCustomReport(uint8_t *report, uint16_t len)
+{
  8009844:	b580      	push	{r7, lr}
  8009846:	b082      	sub	sp, #8
  8009848:	af00      	add	r7, sp, #0
  800984a:	6078      	str	r0, [r7, #4]
  800984c:	460b      	mov	r3, r1
  800984e:	807b      	strh	r3, [r7, #2]
+  return USBD_CUSTOM_HID_SendReport(&hUsbDevice, report, len);
  8009850:	887b      	ldrh	r3, [r7, #2]
  8009852:	461a      	mov	r2, r3
  8009854:	6879      	ldr	r1, [r7, #4]
@@ -24425,6 +24446,7 @@ static int8_t USBD_CUSTOM_HID_SendReport(uint8_t *report, uint16_t len)
  8009858:	f001 f9c4 	bl	800abe4 <USBD_CUSTOM_HID_SendReport>
  800985c:	4603      	mov	r3, r0
  800985e:	b25b      	sxtb	r3, r3
+}
  8009860:	4618      	mov	r0, r3
  8009862:	3708      	adds	r7, #8
  8009864:	46bd      	mov	sp, r7
