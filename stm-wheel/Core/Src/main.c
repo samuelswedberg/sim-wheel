@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <neopixel.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -81,11 +82,13 @@ user_input_data_t user_input_data;
 #define R_ENC_PIN_DT GPIO_PIN_15 // PA15
 
 #define NEOPIXEL_PIN GPIO_PIN_8
-
+#define NUM_LEDS 8 // MATCH IN neopixel.c
 
 #define ADC_CHANNEL_COUNT 4
 #define ADC_REST 2000
 #define ADC_MAX 2800
+
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -98,6 +101,9 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 CAN_HandleTypeDef hcan;
+
+TIM_HandleTypeDef htim1;
+DMA_HandleTypeDef hdma_tim1_ch1;
 
 UART_HandleTypeDef huart1;
 
@@ -130,6 +136,7 @@ static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM1_Init(void);
 void StartDefaultTask(void const * argument);
 void startNextionTask(void const * argument);
 void startCanTask(void const * argument);
@@ -154,6 +161,7 @@ const char* map_gear(int value);
 char* int_to_string(int value);
 void Start_ADC_DMA();
 uint8_t map_hall_sensor(uint16_t adc_value);
+void updateNeopixels();
 /* USER CODE END 0 */
 
 /**
@@ -189,6 +197,7 @@ int main(void)
   MX_CAN_Init();
   MX_USART1_UART_Init();
   MX_ADC1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_Start(&hcan);
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
@@ -245,7 +254,7 @@ int main(void)
 	telemetry_data.tFuel = 0;
 	telemetry_data.tBrakeBias = 0;
 
-	Start_ADC_DMA();
+
   while (1)
   {
 
@@ -423,6 +432,71 @@ static void MX_CAN_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 89;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -468,6 +542,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
 
@@ -682,6 +759,34 @@ char* int_to_string(int value) {
     return string;  // Caller must free() this memory
 }
 
+void updateNeopixels() {
+
+	int testwfewfew = 0;
+
+    // Prevent divide by zero
+    if (telemetry_data.tMaxRpm == 0) return;
+
+    // Clamp currentRPM to maxRPM
+    if (telemetry_data.tRpm > telemetry_data.tMaxRpm) telemetry_data.tRpm = telemetry_data.tMaxRpm;
+
+    // Calculate how many LEDs to light
+    uint8_t ledsToLight = (telemetry_data.tRpm * NUM_LEDS) / telemetry_data.tMaxRpm;
+
+    // Loop through and set color
+    for (uint8_t i = 0; i < NUM_LEDS; i++) {
+        if (i < ledsToLight) {
+            // Green at low RPM, shift to red near redline (optional)
+            uint8_t r = (i * 255) / NUM_LEDS;    // Red increases with RPM
+            uint8_t g = 255 - r;                // Green fades out
+            neopixel_set(i, r, g, 0);
+        } else {
+            neopixel_set(i, 0, 0, 0); // Turn off
+        }
+    }
+
+    neopixel_show();
+}
+
 void updateUserInput() {
 	user_input_data.buttons = 0; // Clear all bits initially
 	user_input_data.hall_analog_1 = 0;
@@ -879,9 +984,11 @@ void startNextionTask(void const * argument)
 {
   /* USER CODE BEGIN startNextionTask */
   /* Infinite loop */
+	neopixel_init();
   for(;;)
   {
 	  updateTelemetry();
+	  updateNeopixels();
 	  osDelay(5);
   }
   /* USER CODE END startNextionTask */
@@ -898,6 +1005,7 @@ void startCanTask(void const * argument)
 {
   /* USER CODE BEGIN startCanTask */
   /* Infinite loop */
+	Start_ADC_DMA();
   for(;;)
   {
 	  updateUserInput();

@@ -54,6 +54,7 @@ void UsageFault_Handler(void);
 void DebugMon_Handler(void);
 void EXTI3_IRQHandler(void);
 void DMA1_Channel1_IRQHandler(void);
+void DMA1_Channel2_IRQHandler(void);
 void USB_HP_CAN1_TX_IRQHandler(void);
 void USB_LP_CAN1_RX0_IRQHandler(void);
 void CAN1_RX1_IRQHandler(void);

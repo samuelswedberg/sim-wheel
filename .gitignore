@@ -7,6 +7,11 @@
 *.o
 *.obj
 
+# Build artifacts
+Debug/
+*.cyclo
+*.su
+
 # Precompiled Headers
 *.gch
 *.pch
