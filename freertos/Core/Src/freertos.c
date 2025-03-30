@@ -682,6 +682,10 @@ extern void signalTelemetryTask(uint8_t *Buf, uint32_t Len) {
 		memcpy(&telemetry_data, Buf, sizeof(telemetry_data));
 		osSemaphoreRelease(uartMutexHandle);
 	}
+	else
+	{
+		int wkglwkgw = 1;
+	}
 }
 
 void motor_rotate_left() {
@@ -754,7 +758,7 @@ void processCAN() {
     uint8_t RxData[8];
 
     while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
-        if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &RxHeader, RxData) == HAL_OK) {
+    	 if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &RxHeader, RxData) == HAL_OK) {
             int32_t value = 0;
 
             // If the received message is for pedals, only use 2 bytes (int16_t)

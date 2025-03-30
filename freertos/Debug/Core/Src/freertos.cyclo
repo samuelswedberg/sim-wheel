@@ -23,8 +23,8 @@
 ../Core/Src/freertos.c:612:6:update_wheel_position_and_velocity	5
 ../Core/Src/freertos.c:649:6:set_motor_pwm	3
 ../Core/Src/freertos.c:678:13:signalTelemetryTask	3
-../Core/Src/freertos.c:687:6:motor_rotate_left	3
-../Core/Src/freertos.c:706:6:motor_rotate_right	3
-../Core/Src/freertos.c:725:7:read_hall_sensor	2
-../Core/Src/freertos.c:735:6:move_to_position	3
-../Core/Src/freertos.c:752:6:processCAN	15
+../Core/Src/freertos.c:691:6:motor_rotate_left	3
+../Core/Src/freertos.c:710:6:motor_rotate_right	3
+../Core/Src/freertos.c:729:7:read_hall_sensor	2
+../Core/Src/freertos.c:739:6:move_to_position	3
+../Core/Src/freertos.c:756:6:processCAN	15

@@ -471,7 +471,7 @@ static void MX_TIM1_Init(void)
   sConfigOC.Pulse = 0;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -761,8 +761,6 @@ char* int_to_string(int value) {
 
 void updateNeopixels() {
 
-	int testwfewfew = 0;
-
     // Prevent divide by zero
     if (telemetry_data.tMaxRpm == 0) return;
 
@@ -891,7 +889,6 @@ void sendCANMessage(uint16_t canID, int32_t value) {
 		uint32_t error = HAL_CAN_GetError(&hcan);
 		HAL_CAN_Stop(&hcan);  // Stop CAN
 		HAL_CAN_Start(&hcan); // Restart CAN
-
 		// Optional: Clear error flags
 		__HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
     }
@@ -984,11 +981,20 @@ void startNextionTask(void const * argument)
 {
   /* USER CODE BEGIN startNextionTask */
   /* Infinite loop */
-	neopixel_init();
+//	neopixel_clear();
+//	neopixel_show();
+//	osDelay(10);
+
   for(;;)
   {
 	  updateTelemetry();
-	  updateNeopixels();
+/*	  updateNeopixels();*/
+//	  neopixel_set(0, 255, 0, 0); // RED
+//	  neopixel_set(1, 0, 255, 0); // GREEN
+//	  neopixel_set(2, 0, 0, 255); // BLUE
+//	  neopixel_set(3, 255, 255, 255); // WHITE
+//	  neopixel_show();
+
 	  osDelay(5);
   }
   /* USER CODE END startNextionTask */

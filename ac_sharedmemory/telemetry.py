@@ -4,7 +4,7 @@ import time
 import json
 import struct 
 
-STRUCT_FORMAT = "<9i1f" # <#i1f the # is the number of items - 1
+STRUCT_FORMAT = "<9if" # <#i1f the # is the number of items - 1
 PORT = "COM10"
 BAUDRATE = 115200
 STRUCT_SIZE = struct.calcsize(STRUCT_FORMAT)

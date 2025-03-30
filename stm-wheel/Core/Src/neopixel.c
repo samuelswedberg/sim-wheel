@@ -4,10 +4,10 @@
 #define NUM_LEDS 8 // MATCH IN main.c
 #define TIMER_FREQ 800000   // 800kHz NeoPixel bitrate (1.25 µs per bit)
 #define BITS_PER_LED 24
-#define RESET_SLOTS 48  // 50µs reset time at 800kHz
+#define RESET_SLOTS 48
 
-#define HIGH_DUTY 52  // ~64% duty
-#define LOW_DUTY 26   // ~32% duty
+#define HIGH_DUTY 64
+#define LOW_DUTY 26
 
 #define BUFFER_SIZE ((NUM_LEDS * BITS_PER_LED) + RESET_SLOTS)
 
@@ -16,11 +16,6 @@ static led_t leds[NUM_LEDS];
 
 extern TIM_HandleTypeDef htim1; // You need to enable TIM1 in CubeMX
 extern DMA_HandleTypeDef hdma_tim1_ch1;
-
-void neopixel_init(void) {
-    HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1, (uint32_t*)pwm_buffer, BUFFER_SIZE);
-    HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
-}
 
 void neopixel_set(uint16_t index, uint8_t r, uint8_t g, uint8_t b) {
     if (index >= NUM_LEDS) return;
