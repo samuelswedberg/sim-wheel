@@ -94,8 +94,8 @@ pedal_data_t pedal_data;
 #define WHEEL_MAX_ANGLE 450.0f      // Maximum angle for the lock (degrees)
 #define BUFFER_SIZE 256
 #define MAX_REVOLUTIONS 2
-#define ADC_RESOLUTION 4096
-#define ADC_MAX_VOLTAGE 4.9
+
+#define ADC_CHANNEL_COUNT  1  // Only one channel used
 
 /* USER CODE END PD */
 
@@ -133,6 +133,10 @@ int gDebugCounter2 = 0;
 
 uint32_t can_error = 0;
 uint32_t lastSendTime = 0;
+
+uint16_t adc_buffer[1];  // DMA needs a buffer
+volatile uint8_t adc_data_ready = 0;
+
 /*
  * Default strength is 0.5 (results in bell curve feedback)
  * Over drive would be greater than 0.5
@@ -170,7 +174,8 @@ void set_motor_pwm(float pwm_value, uint8_t direction);
 uint8_t map_wheel_position_to_axis(int32_t position);
 void motor_rotate_left();
 void motor_rotate_right();
-float read_hall_sensor();
+void read_hall_sensor();
+void Start_ADC_DMA();
 void move_to_position(uint32_t target_position);
 void processCAN();
 /* USER CODE END FunctionPrototypes */
@@ -314,6 +319,7 @@ void StartControlLoop(void const * argument)
 {
   /* USER CODE BEGIN StartControlLoop */
   /* Infinite loop */
+	Start_ADC_DMA();
   for(;;)
   {
 	  float total_force = 0.0;
@@ -322,7 +328,7 @@ void StartControlLoop(void const * argument)
 	  for (;;) {
 		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
 		  float force_feedback_signal = gFfbSignal;
-
+		  read_hall_sensor();
 		  // Step 2: Calculate individual forces based on physics:
 		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
 		  float damping_force = calculate_damping(angular_velocity);
@@ -365,9 +371,6 @@ void StartControlLoop(void const * argument)
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
-
-
-		  gHall = read_hall_sensor();
 		  // Run this task periodically (every 10ms):
 		  osDelay(5);
 	  }
@@ -696,7 +699,7 @@ void motor_rotate_left() {
         set_motor_pwm(100, 1);
 
         // Read Hall Sensor
-        hall_voltage = read_hall_sensor();
+        hall_voltage = gHall;
         if (hall_voltage > max_hall_voltage) {
             max_hall_voltage = hall_voltage;
             max_position = gPosition;
@@ -715,7 +718,7 @@ void motor_rotate_right() {
 		set_motor_pwm(100, 0);
 
         // Read Hall Sensor
-        hall_voltage = read_hall_sensor();
+        hall_voltage = gHall;
         if (hall_voltage > max_hall_voltage) {
             max_hall_voltage = hall_voltage;
             max_position = gPosition;
@@ -726,14 +729,23 @@ void motor_rotate_right() {
     set_motor_pwm(0, 0);
 }
 
-float read_hall_sensor() {
-    uint32_t adc_value = 0;
-    HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
-        adc_value = HAL_ADC_GetValue(&hadc1);
+void read_hall_sensor() {
+	if (adc_data_ready) {
+	    adc_data_ready = 0;
+
+	    gHall = adc_buffer[0];
+	}
+}
+
+void Start_ADC_DMA() {
+	HAL_TIM_Base_Start(&htim8);  // starts the timer
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 1);
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+    if (hadc->Instance == ADC1) {
+        adc_data_ready = 1;
     }
-    HAL_ADC_Stop(&hadc1);
-    return (adc_value * ADC_MAX_VOLTAGE) / ADC_RESOLUTION;
 }
 
 void move_to_position(uint32_t target_position) {

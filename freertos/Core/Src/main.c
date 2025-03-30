@@ -21,6 +21,7 @@
 #include "cmsis_os.h"
 #include "adc.h"
 #include "can.h"
+#include "dma.h"
 #include "tim.h"
 #include "usb_otg.h"
 #include "gpio.h"
@@ -56,7 +57,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+extern uint16_t adc_buffer[];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -117,11 +118,13 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_USB_OTG_FS_PCD_Init();
   MX_ADC1_Init();
   MX_CAN1_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
 
 
