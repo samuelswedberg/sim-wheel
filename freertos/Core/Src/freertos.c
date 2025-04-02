@@ -112,9 +112,11 @@ uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received com
 
 float gPWM;
 float gPWMConst;
+float gPWMConstDebug = 0;
 float gTotalforce;
 volatile int16_t gPosition;
 uint8_t gDir;
+uint8_t gDirDebug = 1;
 float wheel_angle = 0.0;
 float angular_velocity = 0.0;
 float gDelta;
@@ -367,6 +369,7 @@ void StartControlLoop(void const * argument)
 		  // Step 5: Send PWM signal to H-bridge for motor control:
 		  //set_motor_direction(motor_direction);
 		  set_motor_pwm(pwm_output, motor_direction);
+//		  set_motor_pwm(gPWMConstDebug, gDirDebug); DEBUG MOTOR
 
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
