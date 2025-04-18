@@ -368,8 +368,8 @@ void StartControlLoop(void const * argument)
 
 		  // Step 5: Send PWM signal to H-bridge for motor control:
 		  //set_motor_direction(motor_direction);
-		  set_motor_pwm(pwm_output, motor_direction);
-//		  set_motor_pwm(gPWMConstDebug, gDirDebug); DEBUG MOTOR
+//		  set_motor_pwm(pwm_output, motor_direction);
+		  set_motor_pwm(gPWMConstDebug, gDirDebug); //DEBUG MOTOR
 
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);

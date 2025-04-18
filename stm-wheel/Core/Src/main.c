@@ -88,7 +88,7 @@ user_input_data_t user_input_data;
 #define ADC_REST 2000
 #define ADC_MAX 2800
 
-
+#define ENCODER_HOLD_DURATION 500  // ms
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -120,6 +120,11 @@ int delay_ms = 25; // Delay between updates
 int enc_l_flag = 0;
 int enc_c_flag = 0;
 int enc_r_flag = 0;
+
+uint32_t enc_l_time = 0, enc_c_time = 0, enc_r_time = 0;
+
+int shift_paddle_l = 0;
+int shift_paddle_r = 0;
 
 uint32_t lastSendTime = 0;
 uint16_t adc_values[ADC_CHANNEL_COUNT];
@@ -786,6 +791,7 @@ void updateNeopixels() {
 }
 
 void updateUserInput() {
+	uint32_t now = HAL_GetTick();
 	user_input_data.buttons = 0; // Clear all bits initially
 	user_input_data.hall_analog_1 = 0;
 	user_input_data.hall_analog_2 = 0;
@@ -812,9 +818,9 @@ void updateUserInput() {
 	if (enc_r_flag == 1) user_input_data.buttons |= (1 << 16);
 	if (enc_r_flag == -1) user_input_data.buttons |= (1 << 17);
 
-	enc_l_flag = 0;
-	enc_c_flag = 0;
-	enc_r_flag = 0;
+	if (now - enc_l_time > ENCODER_HOLD_DURATION) enc_l_flag = 0;
+	if (now - enc_c_time > ENCODER_HOLD_DURATION) enc_c_flag = 0;
+	if (now - enc_r_time > ENCODER_HOLD_DURATION) enc_r_flag = 0;
 }
 
 void Start_ADC_DMA() {
@@ -830,13 +836,26 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 void processADC() {
 	adc_data_ready = 0;
 
+	int paddleThreshold = 125;
+
 	// Convert ADC values to 8-bit format
 	user_input_data.hall_analog_1 = map_hall_sensor(adc_values[2]);
 	user_input_data.hall_analog_2 = map_hall_sensor(adc_values[3]);
 
-	// Process hall button thresholds
-	if (adc_values[0] > 2200) user_input_data.buttons |= (1 << 10);
-	if (adc_values[1] > 2200) user_input_data.buttons |= (1 << 11);
+	if (shift_paddle_l == 0 && shift_paddle_r == 0)
+	{
+		shift_paddle_l = adc_values[0];
+		shift_paddle_r = adc_values[1];
+	}
+	else
+	{
+		// Process hall button thresholds
+		if (shift_paddle_l - adc_values[1] > paddleThreshold) user_input_data.buttons |= (1 << 11);
+		if (shift_paddle_r - adc_values[0] > paddleThreshold) user_input_data.buttons |= (1 << 10);
+	//	if (adc_values[0] > 2200) user_input_data.buttons |= (1 << 10);
+	//	if (adc_values[1] > 2200) user_input_data.buttons |= (1 << 11);
+	}
+
 }
 uint8_t map_hall_sensor(uint16_t adc_value) {
     if (adc_value < ADC_REST) adc_value = ADC_REST;
@@ -932,6 +951,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         } else {
         	enc_l_flag = -1;
         }
+        enc_l_time = current_time;
     }
     if (GPIO_Pin == C_ENC_PIN_CLK) {
 		if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_DT) == GPIO_PIN_SET) {
@@ -939,6 +959,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		} else {
 			enc_c_flag = -1;
 		}
+		enc_c_time = current_time;
 	}
     if (GPIO_Pin == R_ENC_PIN_CLK) {
 		if (HAL_GPIO_ReadPin(GPIOA, R_ENC_PIN_DT) == GPIO_PIN_SET) {
@@ -946,6 +967,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		} else {
 			enc_r_flag = -1;
 		}
+		enc_r_time = current_time;
 	}
 }
 /* USER CODE END 4 */
