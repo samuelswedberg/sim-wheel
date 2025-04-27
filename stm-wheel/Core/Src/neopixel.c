@@ -6,8 +6,8 @@
 #define BITS_PER_LED 24
 #define RESET_SLOTS 48
 
-#define HIGH_DUTY 64
-#define LOW_DUTY 26
+#define HIGH_DUTY 7
+#define LOW_DUTY 3
 
 #define BUFFER_SIZE ((NUM_LEDS * BITS_PER_LED) + RESET_SLOTS)
 
@@ -49,7 +49,11 @@ void neopixel_show(void) {
         pwm_buffer[i] = 0;
     }
 
+//    HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1, (uint32_t*)pwm_buffer, BUFFER_SIZE);
+//    while (HAL_DMA_GetState(&hdma_tim1_ch1) != HAL_DMA_STATE_READY); // Wait for complete
+    uint32_t start = HAL_GetTick();
     HAL_TIM_PWM_Start_DMA(&htim1, TIM_CHANNEL_1, (uint32_t*)pwm_buffer, BUFFER_SIZE);
-    while (HAL_DMA_GetState(&hdma_tim1_ch1) != HAL_DMA_STATE_READY); // Wait for complete
+    while (HAL_DMA_GetState(&hdma_tim1_ch1) != HAL_DMA_STATE_READY);
+    uint32_t elapsed = HAL_GetTick() - start;
     HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
 }

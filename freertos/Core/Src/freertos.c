@@ -610,44 +610,81 @@ void reset_encoder_position() {
 }
 
 float get_angle_degrees() {
-    int16_t position = read_encoder_position();
+	if(gHall <= 1110 && gHall <= 1130)
+	{
+		reset_encoder_position();
+	}
+	int16_t position = read_encoder_position();
     gPosition = position;
     return (position * 360.0) / ENCODER_RESOLUTION;
 }
 
+//void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
+//    // Get the current encoder count
+//    float current_angle = get_angle_degrees();
+//
+//    // Calculate time difference (in seconds) since the last update
+//    uint32_t current_time = HAL_GetTick();  // In milliseconds
+//    float dt = (current_time - last_update_time) / 1000.0f;  // Convert ms to seconds
+//
+//    // Calculate the change in angle
+//    float delta_angle = current_angle - last_encoder_count;
+//
+//    // Implement a threshold to ignore small changes
+//    if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
+//        delta_angle = 0.0f;
+//    }
+//
+//    // Update the wheel angle, keeping within the lock limit
+//    *wheel_angle += delta_angle;
+//    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
+//    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
+//
+//    gDelta = delta_angle;
+//    // Calculate angular velocity (degrees per second)
+//    if (dt > 0.0001f) {  // Avoid division by zero
+//        *angular_velocity = delta_angle / dt;
+//    } else {
+//        *angular_velocity = 0.0f;
+//    }
+//
+//    // Store the current values for the next update
+//    last_encoder_count = current_angle;
+//    last_update_time = current_time;
+//
+//    gSteering = map_wheel_position_to_axis(*wheel_angle);
+//}
+
 void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
-    // Get the current encoder count
+    // Get the absolute current encoder angle
     float current_angle = get_angle_degrees();
 
-    // Calculate time difference (in seconds) since the last update
+    // Clamp the wheel angle between -WHEEL_MAX_ANGLE and +WHEEL_MAX_ANGLE
+    if (current_angle > WHEEL_MAX_ANGLE) current_angle = WHEEL_MAX_ANGLE;
+    if (current_angle < -WHEEL_MAX_ANGLE) current_angle = -WHEEL_MAX_ANGLE;
+
+    // Directly set the wheel angle
+    *wheel_angle = current_angle;
+
+    // Calculate time difference
     uint32_t current_time = HAL_GetTick();  // In milliseconds
-    float dt = (current_time - last_update_time) / 1000.0f;  // Convert ms to seconds
+    float dt = (current_time - last_update_time) / 1000.0f;  // ms to seconds
 
-    // Calculate the change in angle
-    float delta_angle = current_angle - last_encoder_count;
+    // Calculate angular velocity
+    static float last_angle = 0.0f;
+    float delta_angle = current_angle - last_angle;
 
-    // Implement a threshold to ignore small changes
-    if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
-        delta_angle = 0.0f;
-    }
-
-    // Update the wheel angle, keeping within the lock limit
-    *wheel_angle += delta_angle;
-    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
-    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
-
-    gDelta = delta_angle;
-    // Calculate angular velocity (degrees per second)
     if (dt > 0.0001f) {  // Avoid division by zero
         *angular_velocity = delta_angle / dt;
     } else {
         *angular_velocity = 0.0f;
     }
 
-    // Store the current values for the next update
-    last_encoder_count = current_angle;
+    // Update for next loop
+    last_angle = current_angle;
     last_update_time = current_time;
 
+    // Map to steering value
     gSteering = map_wheel_position_to_axis(*wheel_angle);
 }
 
