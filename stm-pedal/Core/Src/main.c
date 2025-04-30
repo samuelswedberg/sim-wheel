@@ -36,12 +36,19 @@ typedef struct __attribute__((packed, aligned(1))) {
 } pedal_data_t;
 
 pedal_data_t pedal_data;
+
+typedef struct {
+    uint16_t min;
+    uint16_t max;
+} PedalCalibrator;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define FILTER_SIZE 5  // Number of samples to average
 #define ADC_SAMPLES 10  // Number of samples to average
+#define NUM_PEDALS 2
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,7 +63,7 @@ CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
 uint32_t lastSendTime = 0;
-uint32_t adc_values[3];  // Store ADC readings for PA0, PA1, PA2
+uint32_t adc_values[NUM_PEDALS];  // Store ADC readings for PA0, PA1, PA2
 
 static int16_t encoder1_buffer[FILTER_SIZE] = {0};
 static int16_t encoder2_buffer[FILTER_SIZE] = {0};
@@ -64,6 +71,9 @@ static int16_t encoder3_buffer[FILTER_SIZE] = {0};
 
 static int filter_index = 0;
 
+PedalCalibrator pedals[NUM_PEDALS];
+
+int calOnce = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,6 +94,9 @@ void Read_ADC_Value();
 void Read_Potentiometers();
 int16_t moving_average(int16_t buffer[], int16_t new_value);
 uint8_t map_hall_sensor(uint16_t adc_value);
+void calibrate_pedals_on_boot();
+void update_pedal_max(int pedal_index);
+uint8_t get_pedal_output(int pedal_index);
 /* USER CODE END 0 */
 
 /**
@@ -377,21 +390,41 @@ void sendCANMessage(uint16_t canID, int16_t value) {
 }
 
 void Read_ADC_Value() {
-    HAL_ADC_Start(&hadc1);  // Start conversion for all channels
 
-    for (int i = 0; i < 3; i++) {
-        HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-        adc_values[i] = HAL_ADC_GetValue(&hadc1);  // Read each channel in order
-    }
 
-    HAL_ADC_Stop(&hadc1);
 }
 
 void Read_Potentiometers() {
-	Read_ADC_Value();
-	pedal_data.encoder_1 = moving_average(encoder1_buffer, map_hall_sensor(adc_values[0]));
-	pedal_data.encoder_2 = moving_average(encoder2_buffer, map_hall_sensor(adc_values[1]));
-	pedal_data.encoder_3 = moving_average(encoder3_buffer, map_hall_sensor(adc_values[2]));
+	static uint32_t last_read_time = 0;
+    uint32_t now = HAL_GetTick();
+
+    if ((now - last_read_time) >= 50) {
+        last_read_time = now;
+        HAL_ADC_Start(&hadc1);  // Start conversion for all channels
+
+        for (int i = 0; i < NUM_PEDALS; i++) {
+            HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+            adc_values[i] = HAL_ADC_GetValue(&hadc1);  // Read each channel in order
+        }
+
+        HAL_ADC_Stop(&hadc1);
+
+//		if(calOnce == 0)
+//		{
+//			calibrate_pedals_on_boot();
+//			calOnce = 1;
+//		}
+//
+//		for (int i = 0; i < NUM_PEDALS; i++) {
+//			update_pedal_max(i);
+//		}
+
+		pedal_data.encoder_1 = moving_average(encoder1_buffer, map_hall_sensor(adc_values[0]));
+		pedal_data.encoder_2 = moving_average(encoder2_buffer, map_hall_sensor(adc_values[1]));
+//		pedal_data.encoder_3 = moving_average(encoder3_buffer, map_hall_sensor(2));
+
+
+    }
 }
 
 int16_t moving_average(int16_t buffer[], int16_t new_value) {
@@ -406,9 +439,44 @@ int16_t moving_average(int16_t buffer[], int16_t new_value) {
 }
 
 uint8_t map_hall_sensor(uint16_t adc_value) {
-    if (adc_value > 4000) adc_value = 4000;  // Ensure it stays within range
-    return (uint8_t)((adc_value * 255) / 4000);
+    const uint16_t adc_high = 3800;
+    const uint16_t adc_low  = 3200;
+
+    if (adc_value >= adc_high) return 0;
+    if (adc_value <= adc_low) return 255;
+
+    return (uint8_t)(((adc_high - adc_value) * 255UL) / (adc_high - adc_low));
 }
+
+//void calibrate_pedals_on_boot() {
+//    for (int i = 0; i < NUM_PEDALS; ++i) {
+//        pedals[i].min = adc_values[i];
+//        pedals[i].max = adc_values[i] + 10;
+//    }
+//}
+//
+//void update_pedal_max(int pedal_index) {
+//    if (pedal_index < 0 || pedal_index >= NUM_PEDALS) return;
+//    if (adc_values[pedal_index] > pedals[pedal_index].max) {
+//        pedals[pedal_index].max = adc_values[pedal_index];
+//    }
+//}
+//
+//uint8_t get_pedal_output(int pedal_index) {
+//    if (pedal_index < 0 || pedal_index >= NUM_PEDALS) return 0;
+//
+//    uint16_t min = pedals[pedal_index].min;
+//    uint16_t max = pedals[pedal_index].max;
+//
+//    if (max <= min) return 0;
+//
+////    // Clamp ADC value
+////    if (adc_values[pedal_index] < min) adc_values[pedal_index] = min;
+////    if (adc_values[pedal_index] > max) adc_values[pedal_index] = max;
+//
+//    return (uint8_t)(((uint32_t)(max - adc_values[pedal_index]) * 255) / (max - min));
+//}
+
 /* USER CODE END 4 */
 
 /**

@@ -836,7 +836,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 void processADC() {
 	adc_data_ready = 0;
 
-	int paddleThreshold = 125;
+	int paddleThreshold = 100;
 
 	// Convert ADC values to 8-bit format
 	user_input_data.hall_analog_1 = map_hall_sensor(adc_values[2]);
@@ -1011,11 +1011,11 @@ void startNextionTask(void const * argument)
   {
 	  updateTelemetry();
 /*	  updateNeopixels();*/
-	  neopixel_set(0, 255, 0, 0); // RED
-	  neopixel_set(1, 0, 255, 0); // GREEN
-	  neopixel_set(2, 0, 0, 255); // BLUE
-	  neopixel_set(3, 255, 255, 255); // WHITE
-	  neopixel_show();
+//	  neopixel_set(0, 255, 0, 0); // RED
+//	  neopixel_set(1, 0, 255, 0); // GREEN
+//	  neopixel_set(2, 0, 0, 255); // BLUE
+//	  neopixel_set(3, 255, 255, 255); // WHITE
+//	  neopixel_show();
 
 	  osDelay(5);
   }

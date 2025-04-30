@@ -21,31 +21,31 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, ALLOC, LOAD, READONLY, DATA
   8 .data         0000000c  20000000  08002eb8  00004000  2**2
                   CONTENTS, ALLOC, LOAD, DATA
-  9 .bss          000000b8  2000000c  08002ec4  0000400c  2**2
+  9 .bss          000000ac  2000000c  08002ec4  0000400c  2**2
                   ALLOC
- 10 ._user_heap_stack 00000604  200000c4  08002ec4  000040c4  2**0
+ 10 ._user_heap_stack 00000600  200000b8  08002ec4  000040b8  2**0
                   ALLOC
  11 .ARM.attributes 00000029  00000000  00000000  0000400c  2**0
                   CONTENTS, READONLY
- 12 .debug_info   000065f5  00000000  00000000  00004035  2**0
+ 12 .debug_info   0000669a  00000000  00000000  00004035  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 0000178b  00000000  00000000  0000a62a  2**0
+ 13 .debug_abbrev 0000178b  00000000  00000000  0000a6cf  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 000006a8  00000000  00000000  0000bdb8  2**3
+ 14 .debug_aranges 000006a8  00000000  00000000  0000be60  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_rnglists 000004e8  00000000  00000000  0000c460  2**0
+ 15 .debug_rnglists 000004e8  00000000  00000000  0000c508  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  0001721c  00000000  00000000  0000c948  2**0
+ 16 .debug_macro  00017222  00000000  00000000  0000c9f0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   00007b10  00000000  00000000  00023b64  2**0
+ 17 .debug_line   00007b22  00000000  00000000  00023c12  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    00086a01  00000000  00000000  0002b674  2**0
+ 18 .debug_str    00086a4d  00000000  00000000  0002b734  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  000b2075  2**0
+ 19 .comment      00000043  00000000  00000000  000b2181  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00001978  00000000  00000000  000b20b8  2**2
+ 20 .debug_frame  0000197c  00000000  00000000  000b21c4  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000004c  00000000  00000000  000b3a30  2**0
+ 21 .debug_line_str 0000004c  00000000  00000000  000b3b40  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -134,7 +134,7 @@ int main(void)
  800017c:	4808      	ldr	r0, [pc, #32]	@ (80001a0 <main+0x54>)
  800017e:	f002 f8bf 	bl	8002300 <HAL_GPIO_WritePin>
 	  Read_Potentiometers();
- 8000182:	f000 f9f5 	bl	8000570 <Read_Potentiometers>
+ 8000182:	f000 f9cd 	bl	8000520 <Read_Potentiometers>
 	 CAN_Transmit();
  8000186:	f000 f95d 	bl	8000444 <CAN_Transmit>
 	 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
@@ -211,7 +211,7 @@ void SystemClock_Config(void)
  80001fa:	d001      	beq.n	8000200 <SystemClock_Config+0x5c>
   {
     Error_Handler();
- 80001fc:	f000 fa5a 	bl	80006b4 <Error_Handler>
+ 80001fc:	f000 fa59 	bl	80006b2 <Error_Handler>
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
@@ -243,7 +243,7 @@ void SystemClock_Config(void)
  8000224:	d001      	beq.n	800022a <SystemClock_Config+0x86>
   {
     Error_Handler();
- 8000226:	f000 fa45 	bl	80006b4 <Error_Handler>
+ 8000226:	f000 fa44 	bl	80006b2 <Error_Handler>
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
  800022a:	2302      	movs	r3, #2
@@ -260,7 +260,7 @@ void SystemClock_Config(void)
  800023e:	d001      	beq.n	8000244 <SystemClock_Config+0xa0>
   {
     Error_Handler();
- 8000240:	f000 fa38 	bl	80006b4 <Error_Handler>
+ 8000240:	f000 fa37 	bl	80006b2 <Error_Handler>
   }
 }
  8000244:	bf00      	nop
@@ -330,7 +330,7 @@ static void MX_ADC1_Init(void)
  8000294:	d001      	beq.n	800029a <MX_ADC1_Init+0x4e>
   {
     Error_Handler();
- 8000296:	f000 fa0d 	bl	80006b4 <Error_Handler>
+ 8000296:	f000 fa0c 	bl	80006b2 <Error_Handler>
   }
 
   /** Configure Regular Channel
@@ -354,7 +354,7 @@ static void MX_ADC1_Init(void)
  80002b4:	d001      	beq.n	80002ba <MX_ADC1_Init+0x6e>
   {
     Error_Handler();
- 80002b6:	f000 f9fd 	bl	80006b4 <Error_Handler>
+ 80002b6:	f000 f9fc 	bl	80006b2 <Error_Handler>
   }
 
   /** Configure Regular Channel
@@ -375,7 +375,7 @@ static void MX_ADC1_Init(void)
  80002d0:	d001      	beq.n	80002d6 <MX_ADC1_Init+0x8a>
   {
     Error_Handler();
- 80002d2:	f000 f9ef 	bl	80006b4 <Error_Handler>
+ 80002d2:	f000 f9ee 	bl	80006b2 <Error_Handler>
   }
 
   /** Configure Regular Channel
@@ -396,7 +396,7 @@ static void MX_ADC1_Init(void)
  80002ec:	d001      	beq.n	80002f2 <MX_ADC1_Init+0xa6>
   {
     Error_Handler();
- 80002ee:	f000 f9e1 	bl	80006b4 <Error_Handler>
+ 80002ee:	f000 f9e0 	bl	80006b2 <Error_Handler>
   }
   /* USER CODE BEGIN ADC1_Init 2 */
 
@@ -482,7 +482,7 @@ static void MX_CAN_Init(void)
  8000360:	d001      	beq.n	8000366 <MX_CAN_Init+0x62>
   {
     Error_Handler();
- 8000362:	f000 f9a7 	bl	80006b4 <Error_Handler>
+ 8000362:	f000 f9a6 	bl	80006b2 <Error_Handler>
   }
   /* USER CODE BEGIN CAN_Init 2 */
   CAN_FilterTypeDef filterConfig;
@@ -761,247 +761,267 @@ void sendCANMessage(uint16_t canID, int16_t value) {
  800051a:	bd80      	pop	{r7, pc}
  800051c:	20000060 	.word	0x20000060
 
-08000520 <Read_ADC_Value>:
-
+08000520 <Read_Potentiometers>:
 void Read_ADC_Value() {
+
+
+}
+
+void Read_Potentiometers() {
  8000520:	b580      	push	{r7, lr}
  8000522:	b082      	sub	sp, #8
  8000524:	af00      	add	r7, sp, #0
-    HAL_ADC_Start(&hadc1);  // Start conversion for all channels
- 8000526:	4810      	ldr	r0, [pc, #64]	@ (8000568 <Read_ADC_Value+0x48>)
- 8000528:	f000 fb82 	bl	8000c30 <HAL_ADC_Start>
+	static uint32_t last_read_time = 0;
+    uint32_t now = HAL_GetTick();
+ 8000526:	f000 fa7d 	bl	8000a24 <HAL_GetTick>
+ 800052a:	6038      	str	r0, [r7, #0]
 
-    for (int i = 0; i < 3; i++) {
- 800052c:	2300      	movs	r3, #0
- 800052e:	607b      	str	r3, [r7, #4]
- 8000530:	e00f      	b.n	8000552 <Read_ADC_Value+0x32>
-        HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
- 8000532:	f04f 31ff 	mov.w	r1, #4294967295
- 8000536:	480c      	ldr	r0, [pc, #48]	@ (8000568 <Read_ADC_Value+0x48>)
- 8000538:	f000 fc54 	bl	8000de4 <HAL_ADC_PollForConversion>
-        adc_values[i] = HAL_ADC_GetValue(&hadc1);  // Read each channel in order
- 800053c:	480a      	ldr	r0, [pc, #40]	@ (8000568 <Read_ADC_Value+0x48>)
- 800053e:	f000 fd57 	bl	8000ff0 <HAL_ADC_GetValue>
- 8000542:	4602      	mov	r2, r0
- 8000544:	4909      	ldr	r1, [pc, #36]	@ (800056c <Read_ADC_Value+0x4c>)
- 8000546:	687b      	ldr	r3, [r7, #4]
- 8000548:	f841 2023 	str.w	r2, [r1, r3, lsl #2]
-    for (int i = 0; i < 3; i++) {
- 800054c:	687b      	ldr	r3, [r7, #4]
- 800054e:	3301      	adds	r3, #1
- 8000550:	607b      	str	r3, [r7, #4]
- 8000552:	687b      	ldr	r3, [r7, #4]
- 8000554:	2b02      	cmp	r3, #2
- 8000556:	ddec      	ble.n	8000532 <Read_ADC_Value+0x12>
+    if ((now - last_read_time) >= 50) {
+ 800052c:	4b24      	ldr	r3, [pc, #144]	@ (80005c0 <Read_Potentiometers+0xa0>)
+ 800052e:	681b      	ldr	r3, [r3, #0]
+ 8000530:	683a      	ldr	r2, [r7, #0]
+ 8000532:	1ad3      	subs	r3, r2, r3
+ 8000534:	2b31      	cmp	r3, #49	@ 0x31
+ 8000536:	d93e      	bls.n	80005b6 <Read_Potentiometers+0x96>
+        last_read_time = now;
+ 8000538:	4a21      	ldr	r2, [pc, #132]	@ (80005c0 <Read_Potentiometers+0xa0>)
+ 800053a:	683b      	ldr	r3, [r7, #0]
+ 800053c:	6013      	str	r3, [r2, #0]
+        HAL_ADC_Start(&hadc1);  // Start conversion for all channels
+ 800053e:	4821      	ldr	r0, [pc, #132]	@ (80005c4 <Read_Potentiometers+0xa4>)
+ 8000540:	f000 fb76 	bl	8000c30 <HAL_ADC_Start>
+
+        for (int i = 0; i < NUM_PEDALS; i++) {
+ 8000544:	2300      	movs	r3, #0
+ 8000546:	607b      	str	r3, [r7, #4]
+ 8000548:	e00f      	b.n	800056a <Read_Potentiometers+0x4a>
+            HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+ 800054a:	f04f 31ff 	mov.w	r1, #4294967295
+ 800054e:	481d      	ldr	r0, [pc, #116]	@ (80005c4 <Read_Potentiometers+0xa4>)
+ 8000550:	f000 fc48 	bl	8000de4 <HAL_ADC_PollForConversion>
+            adc_values[i] = HAL_ADC_GetValue(&hadc1);  // Read each channel in order
+ 8000554:	481b      	ldr	r0, [pc, #108]	@ (80005c4 <Read_Potentiometers+0xa4>)
+ 8000556:	f000 fd4b 	bl	8000ff0 <HAL_ADC_GetValue>
+ 800055a:	4602      	mov	r2, r0
+ 800055c:	491a      	ldr	r1, [pc, #104]	@ (80005c8 <Read_Potentiometers+0xa8>)
+ 800055e:	687b      	ldr	r3, [r7, #4]
+ 8000560:	f841 2023 	str.w	r2, [r1, r3, lsl #2]
+        for (int i = 0; i < NUM_PEDALS; i++) {
+ 8000564:	687b      	ldr	r3, [r7, #4]
+ 8000566:	3301      	adds	r3, #1
+ 8000568:	607b      	str	r3, [r7, #4]
+ 800056a:	687b      	ldr	r3, [r7, #4]
+ 800056c:	2b01      	cmp	r3, #1
+ 800056e:	ddec      	ble.n	800054a <Read_Potentiometers+0x2a>
+        }
+
+        HAL_ADC_Stop(&hadc1);
+ 8000570:	4814      	ldr	r0, [pc, #80]	@ (80005c4 <Read_Potentiometers+0xa4>)
+ 8000572:	f000 fc0b 	bl	8000d8c <HAL_ADC_Stop>
+//
+//		for (int i = 0; i < NUM_PEDALS; i++) {
+//			update_pedal_max(i);
+//		}
+
+		pedal_data.encoder_1 = moving_average(encoder1_buffer, map_hall_sensor(adc_values[0]));
+ 8000576:	4b14      	ldr	r3, [pc, #80]	@ (80005c8 <Read_Potentiometers+0xa8>)
+ 8000578:	681b      	ldr	r3, [r3, #0]
+ 800057a:	b29b      	uxth	r3, r3
+ 800057c:	4618      	mov	r0, r3
+ 800057e:	f000 f86f 	bl	8000660 <map_hall_sensor>
+ 8000582:	4603      	mov	r3, r0
+ 8000584:	b21b      	sxth	r3, r3
+ 8000586:	4619      	mov	r1, r3
+ 8000588:	4810      	ldr	r0, [pc, #64]	@ (80005cc <Read_Potentiometers+0xac>)
+ 800058a:	f000 f825 	bl	80005d8 <moving_average>
+ 800058e:	4603      	mov	r3, r0
+ 8000590:	461a      	mov	r2, r3
+ 8000592:	4b0f      	ldr	r3, [pc, #60]	@ (80005d0 <Read_Potentiometers+0xb0>)
+ 8000594:	801a      	strh	r2, [r3, #0]
+		pedal_data.encoder_2 = moving_average(encoder2_buffer, map_hall_sensor(adc_values[1]));
+ 8000596:	4b0c      	ldr	r3, [pc, #48]	@ (80005c8 <Read_Potentiometers+0xa8>)
+ 8000598:	685b      	ldr	r3, [r3, #4]
+ 800059a:	b29b      	uxth	r3, r3
+ 800059c:	4618      	mov	r0, r3
+ 800059e:	f000 f85f 	bl	8000660 <map_hall_sensor>
+ 80005a2:	4603      	mov	r3, r0
+ 80005a4:	b21b      	sxth	r3, r3
+ 80005a6:	4619      	mov	r1, r3
+ 80005a8:	480a      	ldr	r0, [pc, #40]	@ (80005d4 <Read_Potentiometers+0xb4>)
+ 80005aa:	f000 f815 	bl	80005d8 <moving_average>
+ 80005ae:	4603      	mov	r3, r0
+ 80005b0:	461a      	mov	r2, r3
+ 80005b2:	4b07      	ldr	r3, [pc, #28]	@ (80005d0 <Read_Potentiometers+0xb0>)
+ 80005b4:	805a      	strh	r2, [r3, #2]
+//		pedal_data.encoder_3 = moving_average(encoder3_buffer, map_hall_sensor(2));
+
+
     }
-
-    HAL_ADC_Stop(&hadc1);
- 8000558:	4803      	ldr	r0, [pc, #12]	@ (8000568 <Read_ADC_Value+0x48>)
- 800055a:	f000 fc17 	bl	8000d8c <HAL_ADC_Stop>
 }
- 800055e:	bf00      	nop
- 8000560:	3708      	adds	r7, #8
- 8000562:	46bd      	mov	sp, r7
- 8000564:	bd80      	pop	{r7, pc}
- 8000566:	bf00      	nop
- 8000568:	20000030 	.word	0x20000030
- 800056c:	2000008c 	.word	0x2000008c
+ 80005b6:	bf00      	nop
+ 80005b8:	3708      	adds	r7, #8
+ 80005ba:	46bd      	mov	sp, r7
+ 80005bc:	bd80      	pop	{r7, pc}
+ 80005be:	bf00      	nop
+ 80005c0:	200000b0 	.word	0x200000b0
+ 80005c4:	20000030 	.word	0x20000030
+ 80005c8:	2000008c 	.word	0x2000008c
+ 80005cc:	20000094 	.word	0x20000094
+ 80005d0:	20000028 	.word	0x20000028
+ 80005d4:	200000a0 	.word	0x200000a0
 
-08000570 <Read_Potentiometers>:
-
-void Read_Potentiometers() {
- 8000570:	b580      	push	{r7, lr}
- 8000572:	af00      	add	r7, sp, #0
-	Read_ADC_Value();
- 8000574:	f7ff ffd4 	bl	8000520 <Read_ADC_Value>
-	pedal_data.encoder_1 = moving_average(encoder1_buffer, map_hall_sensor(adc_values[0]));
- 8000578:	4b18      	ldr	r3, [pc, #96]	@ (80005dc <Read_Potentiometers+0x6c>)
- 800057a:	681b      	ldr	r3, [r3, #0]
- 800057c:	b29b      	uxth	r3, r3
- 800057e:	4618      	mov	r0, r3
- 8000580:	f000 f87a 	bl	8000678 <map_hall_sensor>
- 8000584:	4603      	mov	r3, r0
- 8000586:	b21b      	sxth	r3, r3
- 8000588:	4619      	mov	r1, r3
- 800058a:	4815      	ldr	r0, [pc, #84]	@ (80005e0 <Read_Potentiometers+0x70>)
- 800058c:	f000 f830 	bl	80005f0 <moving_average>
- 8000590:	4603      	mov	r3, r0
- 8000592:	461a      	mov	r2, r3
- 8000594:	4b13      	ldr	r3, [pc, #76]	@ (80005e4 <Read_Potentiometers+0x74>)
- 8000596:	801a      	strh	r2, [r3, #0]
-	pedal_data.encoder_2 = moving_average(encoder2_buffer, map_hall_sensor(adc_values[1]));
- 8000598:	4b10      	ldr	r3, [pc, #64]	@ (80005dc <Read_Potentiometers+0x6c>)
- 800059a:	685b      	ldr	r3, [r3, #4]
- 800059c:	b29b      	uxth	r3, r3
- 800059e:	4618      	mov	r0, r3
- 80005a0:	f000 f86a 	bl	8000678 <map_hall_sensor>
- 80005a4:	4603      	mov	r3, r0
- 80005a6:	b21b      	sxth	r3, r3
- 80005a8:	4619      	mov	r1, r3
- 80005aa:	480f      	ldr	r0, [pc, #60]	@ (80005e8 <Read_Potentiometers+0x78>)
- 80005ac:	f000 f820 	bl	80005f0 <moving_average>
- 80005b0:	4603      	mov	r3, r0
- 80005b2:	461a      	mov	r2, r3
- 80005b4:	4b0b      	ldr	r3, [pc, #44]	@ (80005e4 <Read_Potentiometers+0x74>)
- 80005b6:	805a      	strh	r2, [r3, #2]
-	pedal_data.encoder_3 = moving_average(encoder3_buffer, map_hall_sensor(adc_values[2]));
- 80005b8:	4b08      	ldr	r3, [pc, #32]	@ (80005dc <Read_Potentiometers+0x6c>)
- 80005ba:	689b      	ldr	r3, [r3, #8]
- 80005bc:	b29b      	uxth	r3, r3
- 80005be:	4618      	mov	r0, r3
- 80005c0:	f000 f85a 	bl	8000678 <map_hall_sensor>
- 80005c4:	4603      	mov	r3, r0
- 80005c6:	b21b      	sxth	r3, r3
- 80005c8:	4619      	mov	r1, r3
- 80005ca:	4808      	ldr	r0, [pc, #32]	@ (80005ec <Read_Potentiometers+0x7c>)
- 80005cc:	f000 f810 	bl	80005f0 <moving_average>
- 80005d0:	4603      	mov	r3, r0
- 80005d2:	461a      	mov	r2, r3
- 80005d4:	4b03      	ldr	r3, [pc, #12]	@ (80005e4 <Read_Potentiometers+0x74>)
- 80005d6:	809a      	strh	r2, [r3, #4]
-}
- 80005d8:	bf00      	nop
- 80005da:	bd80      	pop	{r7, pc}
- 80005dc:	2000008c 	.word	0x2000008c
- 80005e0:	20000098 	.word	0x20000098
- 80005e4:	20000028 	.word	0x20000028
- 80005e8:	200000a4 	.word	0x200000a4
- 80005ec:	200000b0 	.word	0x200000b0
-
-080005f0 <moving_average>:
+080005d8 <moving_average>:
 
 int16_t moving_average(int16_t buffer[], int16_t new_value) {
- 80005f0:	b480      	push	{r7}
- 80005f2:	b085      	sub	sp, #20
- 80005f4:	af00      	add	r7, sp, #0
- 80005f6:	6078      	str	r0, [r7, #4]
- 80005f8:	460b      	mov	r3, r1
- 80005fa:	807b      	strh	r3, [r7, #2]
+ 80005d8:	b480      	push	{r7}
+ 80005da:	b085      	sub	sp, #20
+ 80005dc:	af00      	add	r7, sp, #0
+ 80005de:	6078      	str	r0, [r7, #4]
+ 80005e0:	460b      	mov	r3, r1
+ 80005e2:	807b      	strh	r3, [r7, #2]
     buffer[filter_index % FILTER_SIZE] = new_value;  // Store new reading in buffer
- 80005fc:	4b1c      	ldr	r3, [pc, #112]	@ (8000670 <moving_average+0x80>)
- 80005fe:	681a      	ldr	r2, [r3, #0]
- 8000600:	4b1c      	ldr	r3, [pc, #112]	@ (8000674 <moving_average+0x84>)
- 8000602:	fb83 1302 	smull	r1, r3, r3, r2
- 8000606:	1059      	asrs	r1, r3, #1
- 8000608:	17d3      	asrs	r3, r2, #31
- 800060a:	1ac9      	subs	r1, r1, r3
- 800060c:	460b      	mov	r3, r1
- 800060e:	009b      	lsls	r3, r3, #2
- 8000610:	440b      	add	r3, r1
- 8000612:	1ad1      	subs	r1, r2, r3
- 8000614:	460b      	mov	r3, r1
- 8000616:	005b      	lsls	r3, r3, #1
- 8000618:	687a      	ldr	r2, [r7, #4]
- 800061a:	4413      	add	r3, r2
- 800061c:	887a      	ldrh	r2, [r7, #2]
- 800061e:	801a      	strh	r2, [r3, #0]
+ 80005e4:	4b1c      	ldr	r3, [pc, #112]	@ (8000658 <moving_average+0x80>)
+ 80005e6:	681a      	ldr	r2, [r3, #0]
+ 80005e8:	4b1c      	ldr	r3, [pc, #112]	@ (800065c <moving_average+0x84>)
+ 80005ea:	fb83 1302 	smull	r1, r3, r3, r2
+ 80005ee:	1059      	asrs	r1, r3, #1
+ 80005f0:	17d3      	asrs	r3, r2, #31
+ 80005f2:	1ac9      	subs	r1, r1, r3
+ 80005f4:	460b      	mov	r3, r1
+ 80005f6:	009b      	lsls	r3, r3, #2
+ 80005f8:	440b      	add	r3, r1
+ 80005fa:	1ad1      	subs	r1, r2, r3
+ 80005fc:	460b      	mov	r3, r1
+ 80005fe:	005b      	lsls	r3, r3, #1
+ 8000600:	687a      	ldr	r2, [r7, #4]
+ 8000602:	4413      	add	r3, r2
+ 8000604:	887a      	ldrh	r2, [r7, #2]
+ 8000606:	801a      	strh	r2, [r3, #0]
     filter_index++;
- 8000620:	4b13      	ldr	r3, [pc, #76]	@ (8000670 <moving_average+0x80>)
- 8000622:	681b      	ldr	r3, [r3, #0]
- 8000624:	3301      	adds	r3, #1
- 8000626:	4a12      	ldr	r2, [pc, #72]	@ (8000670 <moving_average+0x80>)
- 8000628:	6013      	str	r3, [r2, #0]
+ 8000608:	4b13      	ldr	r3, [pc, #76]	@ (8000658 <moving_average+0x80>)
+ 800060a:	681b      	ldr	r3, [r3, #0]
+ 800060c:	3301      	adds	r3, #1
+ 800060e:	4a12      	ldr	r2, [pc, #72]	@ (8000658 <moving_average+0x80>)
+ 8000610:	6013      	str	r3, [r2, #0]
 
     int32_t sum = 0;
- 800062a:	2300      	movs	r3, #0
- 800062c:	60fb      	str	r3, [r7, #12]
+ 8000612:	2300      	movs	r3, #0
+ 8000614:	60fb      	str	r3, [r7, #12]
     for (int i = 0; i < FILTER_SIZE; i++) {
- 800062e:	2300      	movs	r3, #0
- 8000630:	60bb      	str	r3, [r7, #8]
- 8000632:	e00c      	b.n	800064e <moving_average+0x5e>
+ 8000616:	2300      	movs	r3, #0
+ 8000618:	60bb      	str	r3, [r7, #8]
+ 800061a:	e00c      	b.n	8000636 <moving_average+0x5e>
         sum += buffer[i];  // Sum up last FILTER_SIZE values
- 8000634:	68bb      	ldr	r3, [r7, #8]
- 8000636:	005b      	lsls	r3, r3, #1
- 8000638:	687a      	ldr	r2, [r7, #4]
- 800063a:	4413      	add	r3, r2
- 800063c:	f9b3 3000 	ldrsh.w	r3, [r3]
- 8000640:	461a      	mov	r2, r3
- 8000642:	68fb      	ldr	r3, [r7, #12]
- 8000644:	4413      	add	r3, r2
- 8000646:	60fb      	str	r3, [r7, #12]
+ 800061c:	68bb      	ldr	r3, [r7, #8]
+ 800061e:	005b      	lsls	r3, r3, #1
+ 8000620:	687a      	ldr	r2, [r7, #4]
+ 8000622:	4413      	add	r3, r2
+ 8000624:	f9b3 3000 	ldrsh.w	r3, [r3]
+ 8000628:	461a      	mov	r2, r3
+ 800062a:	68fb      	ldr	r3, [r7, #12]
+ 800062c:	4413      	add	r3, r2
+ 800062e:	60fb      	str	r3, [r7, #12]
     for (int i = 0; i < FILTER_SIZE; i++) {
- 8000648:	68bb      	ldr	r3, [r7, #8]
- 800064a:	3301      	adds	r3, #1
- 800064c:	60bb      	str	r3, [r7, #8]
- 800064e:	68bb      	ldr	r3, [r7, #8]
- 8000650:	2b04      	cmp	r3, #4
- 8000652:	ddef      	ble.n	8000634 <moving_average+0x44>
+ 8000630:	68bb      	ldr	r3, [r7, #8]
+ 8000632:	3301      	adds	r3, #1
+ 8000634:	60bb      	str	r3, [r7, #8]
+ 8000636:	68bb      	ldr	r3, [r7, #8]
+ 8000638:	2b04      	cmp	r3, #4
+ 800063a:	ddef      	ble.n	800061c <moving_average+0x44>
     }
     return (int16_t)(sum / FILTER_SIZE);  // Return average
- 8000654:	68fb      	ldr	r3, [r7, #12]
- 8000656:	4a07      	ldr	r2, [pc, #28]	@ (8000674 <moving_average+0x84>)
- 8000658:	fb82 1203 	smull	r1, r2, r2, r3
- 800065c:	1052      	asrs	r2, r2, #1
- 800065e:	17db      	asrs	r3, r3, #31
- 8000660:	1ad3      	subs	r3, r2, r3
- 8000662:	b21b      	sxth	r3, r3
+ 800063c:	68fb      	ldr	r3, [r7, #12]
+ 800063e:	4a07      	ldr	r2, [pc, #28]	@ (800065c <moving_average+0x84>)
+ 8000640:	fb82 1203 	smull	r1, r2, r2, r3
+ 8000644:	1052      	asrs	r2, r2, #1
+ 8000646:	17db      	asrs	r3, r3, #31
+ 8000648:	1ad3      	subs	r3, r2, r3
+ 800064a:	b21b      	sxth	r3, r3
 }
- 8000664:	4618      	mov	r0, r3
- 8000666:	3714      	adds	r7, #20
- 8000668:	46bd      	mov	sp, r7
- 800066a:	bc80      	pop	{r7}
- 800066c:	4770      	bx	lr
- 800066e:	bf00      	nop
- 8000670:	200000bc 	.word	0x200000bc
- 8000674:	66666667 	.word	0x66666667
+ 800064c:	4618      	mov	r0, r3
+ 800064e:	3714      	adds	r7, #20
+ 8000650:	46bd      	mov	sp, r7
+ 8000652:	bc80      	pop	{r7}
+ 8000654:	4770      	bx	lr
+ 8000656:	bf00      	nop
+ 8000658:	200000ac 	.word	0x200000ac
+ 800065c:	66666667 	.word	0x66666667
 
-08000678 <map_hall_sensor>:
+08000660 <map_hall_sensor>:
 
 uint8_t map_hall_sensor(uint16_t adc_value) {
- 8000678:	b480      	push	{r7}
- 800067a:	b083      	sub	sp, #12
- 800067c:	af00      	add	r7, sp, #0
- 800067e:	4603      	mov	r3, r0
- 8000680:	80fb      	strh	r3, [r7, #6]
-    if (adc_value > 4000) adc_value = 4000;  // Ensure it stays within range
- 8000682:	88fb      	ldrh	r3, [r7, #6]
- 8000684:	f5b3 6f7a 	cmp.w	r3, #4000	@ 0xfa0
- 8000688:	d902      	bls.n	8000690 <map_hall_sensor+0x18>
- 800068a:	f44f 637a 	mov.w	r3, #4000	@ 0xfa0
- 800068e:	80fb      	strh	r3, [r7, #6]
-    return (uint8_t)((adc_value * 255) / 4000);
- 8000690:	88fa      	ldrh	r2, [r7, #6]
- 8000692:	4613      	mov	r3, r2
- 8000694:	021b      	lsls	r3, r3, #8
- 8000696:	1a9b      	subs	r3, r3, r2
- 8000698:	4a05      	ldr	r2, [pc, #20]	@ (80006b0 <map_hall_sensor+0x38>)
- 800069a:	fb82 1203 	smull	r1, r2, r2, r3
- 800069e:	1212      	asrs	r2, r2, #8
- 80006a0:	17db      	asrs	r3, r3, #31
- 80006a2:	1ad3      	subs	r3, r2, r3
- 80006a4:	b2db      	uxtb	r3, r3
-}
- 80006a6:	4618      	mov	r0, r3
- 80006a8:	370c      	adds	r7, #12
- 80006aa:	46bd      	mov	sp, r7
- 80006ac:	bc80      	pop	{r7}
- 80006ae:	4770      	bx	lr
- 80006b0:	10624dd3 	.word	0x10624dd3
+ 8000660:	b480      	push	{r7}
+ 8000662:	b085      	sub	sp, #20
+ 8000664:	af00      	add	r7, sp, #0
+ 8000666:	4603      	mov	r3, r0
+ 8000668:	80fb      	strh	r3, [r7, #6]
+    const uint16_t adc_high = 3800;
+ 800066a:	f640 63d8 	movw	r3, #3800	@ 0xed8
+ 800066e:	81fb      	strh	r3, [r7, #14]
+    const uint16_t adc_low  = 3200;
+ 8000670:	f44f 6348 	mov.w	r3, #3200	@ 0xc80
+ 8000674:	81bb      	strh	r3, [r7, #12]
 
-080006b4 <Error_Handler>:
+    if (adc_value >= adc_high) return 0;
+ 8000676:	88fa      	ldrh	r2, [r7, #6]
+ 8000678:	89fb      	ldrh	r3, [r7, #14]
+ 800067a:	429a      	cmp	r2, r3
+ 800067c:	d301      	bcc.n	8000682 <map_hall_sensor+0x22>
+ 800067e:	2300      	movs	r3, #0
+ 8000680:	e012      	b.n	80006a8 <map_hall_sensor+0x48>
+    if (adc_value <= adc_low) return 255;
+ 8000682:	88fa      	ldrh	r2, [r7, #6]
+ 8000684:	89bb      	ldrh	r3, [r7, #12]
+ 8000686:	429a      	cmp	r2, r3
+ 8000688:	d801      	bhi.n	800068e <map_hall_sensor+0x2e>
+ 800068a:	23ff      	movs	r3, #255	@ 0xff
+ 800068c:	e00c      	b.n	80006a8 <map_hall_sensor+0x48>
+
+    return (uint8_t)(((adc_high - adc_value) * 255UL) / (adc_high - adc_low));
+ 800068e:	89fa      	ldrh	r2, [r7, #14]
+ 8000690:	88fb      	ldrh	r3, [r7, #6]
+ 8000692:	1ad3      	subs	r3, r2, r3
+ 8000694:	461a      	mov	r2, r3
+ 8000696:	4613      	mov	r3, r2
+ 8000698:	021b      	lsls	r3, r3, #8
+ 800069a:	1a9b      	subs	r3, r3, r2
+ 800069c:	89f9      	ldrh	r1, [r7, #14]
+ 800069e:	89ba      	ldrh	r2, [r7, #12]
+ 80006a0:	1a8a      	subs	r2, r1, r2
+ 80006a2:	fbb3 f3f2 	udiv	r3, r3, r2
+ 80006a6:	b2db      	uxtb	r3, r3
+}
+ 80006a8:	4618      	mov	r0, r3
+ 80006aa:	3714      	adds	r7, #20
+ 80006ac:	46bd      	mov	sp, r7
+ 80006ae:	bc80      	pop	{r7}
+ 80006b0:	4770      	bx	lr
+
+080006b2 <Error_Handler>:
 /**
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
 void Error_Handler(void)
 {
- 80006b4:	b480      	push	{r7}
- 80006b6:	af00      	add	r7, sp, #0
+ 80006b2:	b480      	push	{r7}
+ 80006b4:	af00      	add	r7, sp, #0
   \details Disables IRQ interrupts by setting the I-bit in the CPSR.
            Can only be executed in Privileged modes.
  */
 __STATIC_FORCEINLINE void __disable_irq(void)
 {
   __ASM volatile ("cpsid i" : : : "memory");
- 80006b8:	b672      	cpsid	i
+ 80006b6:	b672      	cpsid	i
 }
- 80006ba:	bf00      	nop
+ 80006b8:	bf00      	nop
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
- 80006bc:	bf00      	nop
- 80006be:	e7fd      	b.n	80006bc <Error_Handler+0x8>
+ 80006ba:	bf00      	nop
+ 80006bc:	e7fd      	b.n	80006ba <Error_Handler+0x8>
+	...
 
 080006c0 <HAL_MspInit>:
 /* USER CODE END 0 */
@@ -1648,7 +1668,7 @@ LoopFillZerobss:
   ldr r2, =_sbss
  8000968:	2000000c 	.word	0x2000000c
   ldr r4, =_ebss
- 800096c:	200000c4 	.word	0x200000c4
+ 800096c:	200000b8 	.word	0x200000b8
 
 08000970 <ADC1_2_IRQHandler>:
  * @retval : None
@@ -1796,7 +1816,7 @@ __weak void HAL_IncTick(void)
  8000a18:	bc80      	pop	{r7}
  8000a1a:	4770      	bx	lr
  8000a1c:	20000008 	.word	0x20000008
- 8000a20:	200000c0 	.word	0x200000c0
+ 8000a20:	200000b4 	.word	0x200000b4
 
 08000a24 <HAL_GetTick>:
   * @note  This function is declared as __weak to be overwritten in case of other
@@ -1815,7 +1835,7 @@ __weak uint32_t HAL_GetTick(void)
  8000a2e:	46bd      	mov	sp, r7
  8000a30:	bc80      	pop	{r7}
  8000a32:	4770      	bx	lr
- 8000a34:	200000c0 	.word	0x200000c0
+ 8000a34:	200000b4 	.word	0x200000b4
 
 08000a38 <HAL_Delay>:
   *       implementations in user file.
