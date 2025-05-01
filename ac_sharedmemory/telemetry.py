@@ -4,8 +4,8 @@ import time
 import json
 import struct 
 
-STRUCT_FORMAT = "<9i1f" # <#i1f the # is the number of items - 1
-PORT = "COM10"
+STRUCT_FORMAT = "<9if" # <#i1f the # is the number of items - 1
+PORT = "COM12"
 BAUDRATE = 115200
 STRUCT_SIZE = struct.calcsize(STRUCT_FORMAT)
 
@@ -106,7 +106,7 @@ def main():
             
             if (sm is not None):
                 send_telemetry(sm, ser)
-                time.sleep(.1)
+                time.sleep(.001)
                 receive_data(ser)
 
             # time.sleep(1)

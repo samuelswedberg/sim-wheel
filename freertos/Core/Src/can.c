@@ -41,8 +41,8 @@ void MX_CAN1_Init(void)
   hcan1.Init.Prescaler = 3;
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_8TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_3TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_9TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
   hcan1.Init.AutoBusOff = DISABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
@@ -56,36 +56,27 @@ void MX_CAN1_Init(void)
   /* USER CODE BEGIN CAN1_Init 2 */
   CAN_FilterTypeDef filterConfig;
 
-//  filterConfig.FilterBank = 0;
-//  filterConfig.FilterMode = CAN_FILTERMODE_IDLIST;
-//  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-//  filterConfig.FilterIdHigh = 0x101 << 5;           // ID for wheel
-//  filterConfig.FilterIdLow = 0x102 << 5;            // ID for pedals
-//  filterConfig.FilterMaskIdHigh = 0x0000;           // Not used in list mode
-//  filterConfig.FilterMaskIdLow = 0x0000;            // Not used in list mode
-//  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;  // Assign to FIFO 1
-//  filterConfig.FilterActivation = ENABLE;
-
-//  filterConfig.FilterBank = 0;                      // Use Filter Bank 0
-//  filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;  // Mask Mode
-//  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT; // 32-bit scale
-//  filterConfig.FilterIdHigh = 0x100 << 5;           // Base ID (0x100)
-//  filterConfig.FilterIdLow = 0x0000;                // Not used in standard ID
-//  filterConfig.FilterMaskIdHigh = 0x7FF << 5;       // Match only exact IDs (11-bit standard IDs)
-//  filterConfig.FilterMaskIdLow = 0x0000;            // Not used in standard ID
-//  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO0; // Assign to FIFO0
-//  filterConfig.FilterActivation = ENABLE;           // Enable the filter
-
-
   filterConfig.FilterBank = 0;                      // Use Filter Bank 0
-  filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;  // Mask mode
-  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT; // 32-bit scale
-  filterConfig.FilterIdHigh = 0x100 << 5;           // Base ID to match (0x100 << 5)
-  filterConfig.FilterIdLow = 0x0000;                // Not used in standard ID
-  filterConfig.FilterMaskIdHigh = 0x7FC << 5;       // Mask to allow 0x101 and 0x102
-  filterConfig.FilterMaskIdLow = 0x0000;            // Not used in standard ID
-  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1; // Assign to FIFO0
+  filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;  // Mask mode (allows flexible ID matching)
+  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT; // Use 32-bit filtering
+  filterConfig.FilterIdHigh = (0x000 << 5);         // Base ID (ignored due to mask)
+  filterConfig.FilterMaskIdHigh = (0x000 << 5);     // Mask 0x000 means accept all messages
+  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1; // Assign messages to FIFO 1
   filterConfig.FilterActivation = ENABLE;
+
+//  filterConfig.FilterBank = 0;                          // Use filter bank 0
+//  filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;     // Mask mode
+//  filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;    // 32-bit scale
+//
+//  filterConfig.FilterIdHigh     = 0x0000;               // Top 16 bits of 32-bit ID (StdId << 5)
+//  filterConfig.FilterIdLow      = 0x0000;               // Lower 16 bits
+//  filterConfig.FilterMaskIdHigh = 0x0000;               // Mask high bits
+//  filterConfig.FilterMaskIdLow  = 0x0000;               // Mask low bits
+//
+//  filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;     // Route accepted messages to FIFO1
+//  filterConfig.FilterActivation     = ENABLE;
+//  filterConfig.SlaveStartFilterBank = 14;               // For CAN1 if CAN2 is used (safe default)
+
 
   HAL_CAN_ConfigFilter(&hcan1, &filterConfig);
 

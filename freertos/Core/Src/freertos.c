@@ -94,8 +94,8 @@ pedal_data_t pedal_data;
 #define WHEEL_MAX_ANGLE 450.0f      // Maximum angle for the lock (degrees)
 #define BUFFER_SIZE 256
 #define MAX_REVOLUTIONS 2
-#define ADC_RESOLUTION 4096
-#define ADC_MAX_VOLTAGE 4.9
+
+#define ADC_CHANNEL_COUNT  1  // Only one channel used
 
 /* USER CODE END PD */
 
@@ -112,9 +112,11 @@ uint8_t gCommandData[BUFFER_SIZE];  // Buffer to hold a copy of the received com
 
 float gPWM;
 float gPWMConst;
+float gPWMConstDebug = 0;
 float gTotalforce;
 volatile int16_t gPosition;
 uint8_t gDir;
+uint8_t gDirDebug = 1;
 float wheel_angle = 0.0;
 float angular_velocity = 0.0;
 float gDelta;
@@ -132,6 +134,10 @@ int gDebugCounter1 = 0;
 int gDebugCounter2 = 0;
 
 uint32_t can_error = 0;
+uint32_t lastSendTime = 0;
+
+uint16_t adc_buffer[1];  // DMA needs a buffer
+volatile uint8_t adc_data_ready = 0;
 
 /*
  * Default strength is 0.5 (results in bell curve feedback)
@@ -153,6 +159,7 @@ osSemaphoreId uartMutexHandle;
 /* USER CODE BEGIN FunctionPrototypes */
 void runCAN();
 void runReport();
+void sendCANMessage(uint16_t canID, int32_t value);
 float constrain(float x, float lower, float upper);
 float calculate_inertia(float force_feedback, float angular_velocity);
 float calculate_damping(float angular_velocity);
@@ -164,12 +171,13 @@ int16_t read_encoder_position();
 void reset_encoder_position();
 float get_angle_degrees();
 void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity);
-void set_motor_pwm(float pwm_value);
-void set_motor_direction(uint8_t direction);
+void set_motor_pwm(float pwm_value, uint8_t direction);
+//void set_motor_direction(uint8_t direction);
 uint8_t map_wheel_position_to_axis(int32_t position);
 void motor_rotate_left();
 void motor_rotate_right();
-float read_hall_sensor();
+void read_hall_sensor();
+void Start_ADC_DMA();
 void move_to_position(uint32_t target_position);
 void processCAN();
 /* USER CODE END FunctionPrototypes */
@@ -313,6 +321,7 @@ void StartControlLoop(void const * argument)
 {
   /* USER CODE BEGIN StartControlLoop */
   /* Infinite loop */
+	Start_ADC_DMA();
   for(;;)
   {
 	  float total_force = 0.0;
@@ -321,7 +330,7 @@ void StartControlLoop(void const * argument)
 	  for (;;) {
 		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
 		  float force_feedback_signal = gFfbSignal;
-
+		  read_hall_sensor();
 		  // Step 2: Calculate individual forces based on physics:
 		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
 		  float damping_force = calculate_damping(angular_velocity);
@@ -358,15 +367,13 @@ void StartControlLoop(void const * argument)
 		  gPWMConst = pwm_output;
 
 		  // Step 5: Send PWM signal to H-bridge for motor control:
-		  set_motor_direction(motor_direction);
-		  set_motor_pwm(pwm_output);
+		  //set_motor_direction(motor_direction);
+//		  set_motor_pwm(pwm_output, motor_direction);
+		  set_motor_pwm(gPWMConstDebug, gDirDebug); //DEBUG MOTOR
 
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
 
-
-
-		  gHall = read_hall_sensor();
 		  // Run this task periodically (every 10ms):
 		  osDelay(5);
 	  }
@@ -444,61 +451,62 @@ void runReport() {
 }
 
 void runCAN() {
-	CAN_TxHeaderTypeDef TxHeader;
-	uint32_t TxMailbox;
+    static uint8_t messageIndex = 0;
+    uint32_t currentTime = HAL_GetTick();
 
-	// Create a telemetry_packet instance and initialize its fields
-//	telemetry_packet dataToSend = {3600, 1, 120, 0, 0, 0, 45, 0}; DEBUG CODE
-	telemetry_packet dataToSend = telemetry_data;
-	uint8_t* rawData = (uint8_t*)&dataToSend;
+    if (currentTime - lastSendTime >= 2) {  // Reduce cycle time to avoid backlog
+        switch (messageIndex) {
+            case 0:
+                sendCANMessage(0x100, telemetry_data.tRpm);
+                sendCANMessage(0x101, telemetry_data.tGear);
+                sendCANMessage(0x102, telemetry_data.tSpeedKmh);
+                break;
+            case 1:
+                sendCANMessage(0x103, telemetry_data.tHasDRS);
+                sendCANMessage(0x104, telemetry_data.tDrs);
+                sendCANMessage(0x105, telemetry_data.tPitLim);
+                break;
+            case 2:
+                sendCANMessage(0x106, telemetry_data.tFuel);
+                sendCANMessage(0x107, telemetry_data.tBrakeBias);
+                sendCANMessage(0x108, telemetry_data.tMaxRpm);
+                break;
+            case 3:
+                sendCANMessage(0x109, telemetry_data.tForceFB);
+                break;
+        }
 
-	// Initialize CAN Header
-	TxHeader.StdId = 0x100;           // CAN ID for the message
-	TxHeader.ExtId = 0;
-	TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-	TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-	TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
+        messageIndex = (messageIndex + 1) % 4;  // Cycle through cases
+        lastSendTime = currentTime;  // Update time
+    }
 
-	uint8_t frameData[8];             // Temporary buffer for each CAN frame
+    osSemaphoreRelease(spiSendMutexHandle);
+}
 
-	// Calculate the size of the telemetry_packet struct
-	int totalSize = sizeof(telemetry_packet);
+void sendCANMessage(uint16_t canID, int32_t value) {
+    CAN_TxHeaderTypeDef TxHeader;
+    uint8_t TxData[4];  // 4-byte buffer
+    uint32_t TxMailbox;
 
-	// Split the telemetry_packet into CAN frames
-	for (int i = 0; i < totalSize; i += 8) {
-	    // Calculate the size of the current chunk (for the last frame)
-	    int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
+    // Configure the CAN header
+    TxHeader.StdId = canID;  // Set the ID
+    TxHeader.IDE = CAN_ID_STD;  // Standard 11-bit ID
+    TxHeader.RTR = CAN_RTR_DATA;  // Data frame, not remote request
+    TxHeader.DLC = sizeof(value);  // Data Length = 4 bytes
 
-	    // Copy the next chunk of data into the frame buffer
-	    memcpy(frameData, &rawData[i], chunkSize);
+    // Copy integer value into TxData buffer (ensure correct byte order)
+    memcpy(TxData, &value, sizeof(value));
 
-	    // Adjust DLC for the last frame
-	    TxHeader.DLC = chunkSize;
+    // Send the CAN message
+    if (HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
+    	 // Optionally log the state of CAN error counters
+		uint32_t error = HAL_CAN_GetError(&hcan1);
+		HAL_CAN_Stop(&hcan1);  // Stop CAN
+		HAL_CAN_Start(&hcan1); // Restart CAN
 
-	    HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan1, &TxHeader, frameData, &TxMailbox);
-	    if (status != HAL_OK) {
-	        // Inspect the error
-	        if (status == HAL_ERROR) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-	        } else if (status == HAL_BUSY) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-	        } else if (status == HAL_TIMEOUT) {
-	            printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-	        }
-
-	        // Optionally log the state of CAN error counters
-	        can_error = HAL_CAN_GetError(&hcan1);
-
-	        HAL_CAN_Stop(&hcan1);  // Stop CAN
-	        HAL_CAN_Start(&hcan1); // Restart CAN
-
-	        // Optional: Clear error flags
-	        __HAL_CAN_CLEAR_FLAG(&hcan1, CAN_FLAG_ERRI);
-	    }
-	    HAL_Delay(1);
-	}
-
-	osSemaphoreRelease(spiSendMutexHandle);
+		// Optional: Clear error flags
+		__HAL_CAN_CLEAR_FLAG(&hcan1, CAN_FLAG_ERRI);
+    }
 }
 
 float oscillate() {
@@ -602,67 +610,113 @@ void reset_encoder_position() {
 }
 
 float get_angle_degrees() {
-    int16_t position = read_encoder_position();
+	if(gHall <= 1110 && gHall <= 1130)
+	{
+		reset_encoder_position();
+	}
+	int16_t position = read_encoder_position();
     gPosition = position;
     return (position * 360.0) / ENCODER_RESOLUTION;
 }
 
+//void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
+//    // Get the current encoder count
+//    float current_angle = get_angle_degrees();
+//
+//    // Calculate time difference (in seconds) since the last update
+//    uint32_t current_time = HAL_GetTick();  // In milliseconds
+//    float dt = (current_time - last_update_time) / 1000.0f;  // Convert ms to seconds
+//
+//    // Calculate the change in angle
+//    float delta_angle = current_angle - last_encoder_count;
+//
+//    // Implement a threshold to ignore small changes
+//    if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
+//        delta_angle = 0.0f;
+//    }
+//
+//    // Update the wheel angle, keeping within the lock limit
+//    *wheel_angle += delta_angle;
+//    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
+//    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
+//
+//    gDelta = delta_angle;
+//    // Calculate angular velocity (degrees per second)
+//    if (dt > 0.0001f) {  // Avoid division by zero
+//        *angular_velocity = delta_angle / dt;
+//    } else {
+//        *angular_velocity = 0.0f;
+//    }
+//
+//    // Store the current values for the next update
+//    last_encoder_count = current_angle;
+//    last_update_time = current_time;
+//
+//    gSteering = map_wheel_position_to_axis(*wheel_angle);
+//}
+
 void update_wheel_position_and_velocity(float *wheel_angle, float *angular_velocity) {
-    // Get the current encoder count
+    // Get the absolute current encoder angle
     float current_angle = get_angle_degrees();
 
-    // Calculate time difference (in seconds) since the last update
+    // Clamp the wheel angle between -WHEEL_MAX_ANGLE and +WHEEL_MAX_ANGLE
+    if (current_angle > WHEEL_MAX_ANGLE) current_angle = WHEEL_MAX_ANGLE;
+    if (current_angle < -WHEEL_MAX_ANGLE) current_angle = -WHEEL_MAX_ANGLE;
+
+    // Directly set the wheel angle
+    *wheel_angle = current_angle;
+
+    // Calculate time difference
     uint32_t current_time = HAL_GetTick();  // In milliseconds
-    float dt = (current_time - last_update_time) / 1000.0f;  // Convert ms to seconds
+    float dt = (current_time - last_update_time) / 1000.0f;  // ms to seconds
 
-    // Calculate the change in angle
-    float delta_angle = current_angle - last_encoder_count;
+    // Calculate angular velocity
+    static float last_angle = 0.0f;
+    float delta_angle = current_angle - last_angle;
 
-    // Implement a threshold to ignore small changes
-    if (fabs(delta_angle) < 0.25f) {  // Adjust the threshold as needed
-        delta_angle = 0.0f;
-    }
-
-    // Update the wheel angle, keeping within the lock limit
-    *wheel_angle += delta_angle;
-    if (*wheel_angle > WHEEL_MAX_ANGLE) *wheel_angle = WHEEL_MAX_ANGLE;
-    if (*wheel_angle < -WHEEL_MAX_ANGLE) *wheel_angle = -WHEEL_MAX_ANGLE;
-
-    gDelta = delta_angle;
-    // Calculate angular velocity (degrees per second)
     if (dt > 0.0001f) {  // Avoid division by zero
         *angular_velocity = delta_angle / dt;
     } else {
         *angular_velocity = 0.0f;
     }
 
-    // Store the current values for the next update
-    last_encoder_count = current_angle;
+    // Update for next loop
+    last_angle = current_angle;
     last_update_time = current_time;
 
+    // Map to steering value
     gSteering = map_wheel_position_to_axis(*wheel_angle);
 }
 
 
-void set_motor_pwm(float pwm_value) {
+void set_motor_pwm(float pwm_value, uint8_t direction) {
     // Assuming pwm_value ranges from 0 to 255
     uint32_t pulse = (uint32_t)((pwm_value / 255.0) * htim3.Init.Period);
 
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse);
+    if (direction == 1) { // Forward
+    	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, pulse);
+    	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+	} else if (direction == 0) { // Reverse
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, pulse);
+	} else { // Stop
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
+		__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
+	}
 }
 
-void set_motor_direction(uint8_t direction) {
-    if (direction == 1) { // Forward
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);   // IN1 = HIGH
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET); // IN2 = LOW
-    } else if (direction == 0) { // Reverse
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET); // IN1 = LOW
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);   // IN2 = HIGH
-    } else { // Stop
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);   // IN1 = LOW
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);   // IN2 = LOW
-    }
-}
+//void set_motor_direction(uint8_t direction) {
+//    if (direction == 1) { // Forward
+//        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);   // IN1 = HIGH
+//        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET); // IN2 = LOW
+//    } else if (direction == 0) { // Reverse
+//        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET); // IN1 = LOW
+//        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_SET);   // IN2 = HIGH
+//    } else { // Stop
+//        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);   // IN1 = LOW
+//        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET);   // IN2 = LOW
+//    }
+//}
 
 extern void signalTelemetryTask(uint8_t *Buf, uint32_t Len) {
 	if (Len == sizeof(telemetry_packet))  // Verify the data size matches the struct size
@@ -671,17 +725,21 @@ extern void signalTelemetryTask(uint8_t *Buf, uint32_t Len) {
 		memcpy(&telemetry_data, Buf, sizeof(telemetry_data));
 		osSemaphoreRelease(uartMutexHandle);
 	}
+	else
+	{
+		int wkglwkgw = 1;
+	}
 }
 
 void motor_rotate_left() {
     uint32_t target_position = gPosition - (MAX_REVOLUTIONS * ENCODER_RESOLUTION);
     while (gPosition > target_position) {
         // Set motor speed and direction
-        set_motor_direction(1);
-        set_motor_pwm(100);
+        //set_motor_direction(1);
+        set_motor_pwm(100, 1);
 
         // Read Hall Sensor
-        hall_voltage = read_hall_sensor();
+        hall_voltage = gHall;
         if (hall_voltage > max_hall_voltage) {
             max_hall_voltage = hall_voltage;
             max_position = gPosition;
@@ -689,18 +747,18 @@ void motor_rotate_left() {
     }
 
     // Stop Motor
-    set_motor_pwm(0);
+    set_motor_pwm(0, 0);
 }
 
 void motor_rotate_right() {
     uint32_t target_position = gPosition + (MAX_REVOLUTIONS * ENCODER_RESOLUTION);
     while (gPosition < target_position) {
         // Set motor speed and direction
-    	set_motor_direction(0);
-		set_motor_pwm(100);
+    	//set_motor_direction(0);
+		set_motor_pwm(100, 0);
 
         // Read Hall Sensor
-        hall_voltage = read_hall_sensor();
+        hall_voltage = gHall;
         if (hall_voltage > max_hall_voltage) {
             max_hall_voltage = hall_voltage;
             max_position = gPosition;
@@ -708,96 +766,82 @@ void motor_rotate_right() {
     }
 
     // Stop Motor
-    set_motor_pwm(0);
+    set_motor_pwm(0, 0);
 }
 
-float read_hall_sensor() {
-    uint32_t adc_value = 0;
-    HAL_ADC_Start(&hadc1);
-    if (HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY) == HAL_OK) {
-        adc_value = HAL_ADC_GetValue(&hadc1);
+void read_hall_sensor() {
+	if (adc_data_ready) {
+	    adc_data_ready = 0;
+
+	    gHall = adc_buffer[0];
+	}
+}
+
+void Start_ADC_DMA() {
+	HAL_TIM_Base_Start(&htim8);  // starts the timer
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buffer, 1);
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
+    if (hadc->Instance == ADC1) {
+        adc_data_ready = 1;
     }
-    HAL_ADC_Stop(&hadc1);
-    return (adc_value * ADC_MAX_VOLTAGE) / ADC_RESOLUTION;
 }
 
 void move_to_position(uint32_t target_position) {
     while (gPosition != target_position) {
         if (gPosition < target_position) {
             // Rotate Right
-        	set_motor_direction(1);
-			set_motor_pwm(100);
+        	//set_motor_direction(1);
+			set_motor_pwm(100, 1);
         } else {
             // Rotate Left
-        	set_motor_direction(0);
-			set_motor_pwm(100);
+        	//set_motor_direction(0);
+			set_motor_pwm(100, 0);
         }
     }
 
     // Stop Motor
-    set_motor_pwm(0);
+    set_motor_pwm(0, 0);
 }
 
 void processCAN() {
-    CAN_RxHeaderTypeDef rxHeader;
-    uint8_t rxData[8];  // Buffer to store the received data
-    static uint32_t last_receive_time_1 = 0;
-    static uint32_t last_receive_time_2 = 0;
-    // Optional: Check FIFO1 if used
+    CAN_RxHeaderTypeDef RxHeader;
+    uint8_t RxData[8];
+
     while (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO1) > 0) {
-        if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
-            // Process the received message
-            printf("Message Received from ID: 0x%03X, Data: %02X %02X %02X %02X\n",
-                   rxHeader.StdId, rxData[0], rxData[1], rxData[2], rxData[3]);
-            if (rxHeader.StdId == 0x101) {
-				static uint8_t buffer[sizeof(user_input_data_t)];
-				static uint8_t offset = 0;
+    	 if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO1, &RxHeader, RxData) == HAL_OK) {
+            int32_t value = 0;
 
-				// Copy received data into buffer
-				uint8_t bytesToCopy = (rxHeader.DLC < sizeof(user_input_data_t) - offset) ? rxHeader.DLC : sizeof(user_input_data_t) - offset;
-				memcpy(&buffer[offset], rxData, bytesToCopy);
-				offset += bytesToCopy;
+            // If the received message is for pedals, only use 2 bytes (int16_t)
+            if (RxHeader.StdId >= 0x300 && RxHeader.StdId <= 0x302) {
+                value = (int16_t)(
+                    ((uint16_t)RxData[0]) |
+                    ((uint16_t)RxData[1] << 8)  // Combine 2 bytes into int16_t
+                );
+            } else {
+                // Steering Wheel Messages (4-byte int32_t)
+                value = (int32_t)(
+                    ((uint32_t)RxData[0]) |
+                    ((uint32_t)RxData[1] << 8) |
+                    ((uint32_t)RxData[2] << 16) |
+                    ((uint32_t)RxData[3] << 24)
+                );
+            }
 
-				// Check if the entire packet has been received
-				if (offset >= sizeof(user_input_data_t)) {
-					// Copy buffer into the telemetry_packet struct
-					memcpy(&user_input_data, buffer, sizeof(user_input_data_t));
-					offset = 0; // Reset offset for the next packet
-					gDebugCounter1++;
-					last_receive_time_1 = HAL_GetTick();
-				}
-				if (HAL_GetTick() - last_receive_time_1 > 500) {
-					printf("CAN data timeout: Resetting buffer!\n");
-					offset = 0;  // Prevent infinite accumulation
-				}
+			switch (RxHeader.StdId) {
+				// Steering Wheel
+				case 0x200: user_input_data.buttons = (uint32_t)value; gDebugCounter1++; break;
+				case 0x201: user_input_data.hall_analog_1 = (uint8_t)value; gDebugCounter1++; break;
+				case 0x202: user_input_data.hall_analog_2 = (uint8_t)value; gDebugCounter1++; break;
+
+				// Pedals
+				case 0x300: pedal_data.encoder_1 = (int16_t)value; gDebugCounter2++; break;
+				case 0x301: pedal_data.encoder_2 = (int16_t)value; gDebugCounter2++;  break;
+				case 0x302: pedal_data.encoder_3 = (int16_t)value; gDebugCounter2++; break;
+				default: break;
 			}
-            else if (rxHeader.StdId == 0x102) {
-				static uint8_t buffer[sizeof(pedal_data_t)];
-				static uint8_t offset = 0;
-
-				// Copy received data into buffer
-				uint8_t bytesToCopy = (rxHeader.DLC < sizeof(pedal_data_t) - offset) ? rxHeader.DLC : sizeof(pedal_data_t) - offset;
-				memcpy(&buffer[offset], rxData, bytesToCopy);
-				offset += bytesToCopy;
-
-				// Check if the entire packet has been received
-				if (offset >= sizeof(pedal_data_t)) {
-					// Copy buffer into the telemetry_packet struct
-					memcpy(&pedal_data, buffer, sizeof(pedal_data_t));
-					offset = 0; // Reset offset for the next packet
-					gDebugCounter2++;
-					last_receive_time_2 = HAL_GetTick();
-				}
-				if (HAL_GetTick() - last_receive_time_2 > 500) {
-					printf("CAN data timeout: Resetting buffer!\n");
-					offset = 0;  // Prevent infinite accumulation
-				}
-			}
-
-        } else {
-            printf("Failed to retrieve CAN message\n");
-        }
-    }
+		}
+	}
 }
-
 /* USER CODE END Application */

@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -25,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <neopixel.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -80,11 +82,13 @@ user_input_data_t user_input_data;
 #define R_ENC_PIN_DT GPIO_PIN_15 // PA15
 
 #define NEOPIXEL_PIN GPIO_PIN_8
-
+#define NUM_LEDS 8 // MATCH IN neopixel.c
 
 #define ADC_CHANNEL_COUNT 4
 #define ADC_REST 2000
 #define ADC_MAX 2800
+
+#define ENCODER_HOLD_DURATION 500  // ms
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -98,8 +102,14 @@ DMA_HandleTypeDef hdma_adc1;
 
 CAN_HandleTypeDef hcan;
 
+TIM_HandleTypeDef htim1;
+DMA_HandleTypeDef hdma_tim1_ch1;
+
 UART_HandleTypeDef huart1;
 
+osThreadId defaultTaskHandle;
+osThreadId nextionTaskHandle;
+osThreadId canTaskHandle;
 /* USER CODE BEGIN PV */
 // Oscillation state variables
 int value = 0;
@@ -110,6 +120,11 @@ int delay_ms = 25; // Delay between updates
 int enc_l_flag = 0;
 int enc_c_flag = 0;
 int enc_r_flag = 0;
+
+uint32_t enc_l_time = 0, enc_c_time = 0, enc_r_time = 0;
+
+int shift_paddle_l = 0;
+int shift_paddle_r = 0;
 
 uint32_t lastSendTime = 0;
 uint16_t adc_values[ADC_CHANNEL_COUNT];
@@ -126,6 +141,11 @@ static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_TIM1_Init(void);
+void StartDefaultTask(void const * argument);
+void startNextionTask(void const * argument);
+void startCanTask(void const * argument);
+
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -135,6 +155,7 @@ static void MX_ADC1_Init(void);
 int oscillate_value();
 void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms);
 void CAN_Transmit();
+void sendCANMessage(uint16_t canID, int32_t value);
 void updateTelemetry();
 void updateUserInput();
 void send_to_nextion(const char *var_name, int value);
@@ -145,6 +166,7 @@ const char* map_gear(int value);
 char* int_to_string(int value);
 void Start_ADC_DMA();
 uint8_t map_hall_sensor(uint16_t adc_value);
+void updateNeopixels();
 /* USER CODE END 0 */
 
 /**
@@ -180,13 +202,53 @@ int main(void)
   MX_CAN_Init();
   MX_USART1_UART_Init();
   MX_ADC1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_Start(&hcan);
   HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO1_MSG_PENDING);
   /* USER CODE END 2 */
 
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* definition and creation of defaultTask */
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
+  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+
+  /* definition and creation of nextionTask */
+  osThreadDef(nextionTask, startNextionTask, osPriorityAboveNormal, 0, 192);
+  nextionTaskHandle = osThreadCreate(osThread(nextionTask), NULL);
+
+  /* definition and creation of canTask */
+  osThreadDef(canTask, startCanTask, osPriorityHigh, 0, 192);
+  canTaskHandle = osThreadCreate(osThread(canTask), NULL);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  vTaskStartScheduler();
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
 	telemetry_data.tRpm = 0;
 	telemetry_data.tRpm = 0;
@@ -197,19 +259,10 @@ int main(void)
 	telemetry_data.tFuel = 0;
 	telemetry_data.tBrakeBias = 0;
 
-	Start_ADC_DMA();
+
   while (1)
   {
-	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
 
-	  updateTelemetry();
-	  updateUserInput();
-
-	  CAN_Transmit();
-
-	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
-	  // Wait for the specified delay
-//	  HAL_Delay(5);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -374,12 +427,77 @@ static void MX_CAN_Init(void)
   filterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
   filterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
   filterConfig.FilterIdHigh = 0x100 << 5;       // Accept all IDs
-  filterConfig.FilterMaskIdHigh = 0x7FF << 5;;   // Accept all IDs
+  filterConfig.FilterMaskIdHigh = 0x700 << 5;;   // Accept all IDs
   filterConfig.FilterFIFOAssignment = CAN_RX_FIFO1;  // Assign to FIFO 1
   filterConfig.FilterActivation = ENABLE;
 
   HAL_CAN_ConfigFilter(&hcan, &filterConfig);
   /* USER CODE END CAN_Init 2 */
+
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 9;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 1;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_ENABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
 
 }
 
@@ -427,8 +545,11 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
 
@@ -484,10 +605,10 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
 
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -507,7 +628,7 @@ void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms
  * NEXTION UART FUNCTIONS
  */
 void updateTelemetry() {
-//	int mappedRpm = map_value(telemetry_data.tRpm, 0, telemetry_data.tMaxRpm, 0, 100);
+	int mappedRpmBar = map_rpmbar(telemetry_data.tRpm, 0, telemetry_data.tMaxRpm, 0, 100);
 	char *mappedRpm = int_to_string(telemetry_data.tRpm);
 	char *mappedGear = map_gear(telemetry_data.tGear);
 	char *mappedSpeed = int_to_string(telemetry_data.tSpeedKmh);
@@ -516,7 +637,7 @@ void updateTelemetry() {
 	char *mappedFuel = int_to_string(telemetry_data.tFuel);
 	char *mappedBrakeBias = int_to_string(telemetry_data.tBrakeBias);
 
-//	send_int_to_nextion("rpmbar", mappedRpm);
+	send_int_to_nextion("rpmbar", mappedRpmBar);
 	send__char_to_nextion("rpm", mappedRpm);
 	send__char_to_nextion("gear", mappedGear);
 	send__char_to_nextion("speed", mappedSpeed);
@@ -643,7 +764,34 @@ char* int_to_string(int value) {
     return string;  // Caller must free() this memory
 }
 
+void updateNeopixels() {
+
+    // Prevent divide by zero
+    if (telemetry_data.tMaxRpm == 0) return;
+
+    // Clamp currentRPM to maxRPM
+    if (telemetry_data.tRpm > telemetry_data.tMaxRpm) telemetry_data.tRpm = telemetry_data.tMaxRpm;
+
+    // Calculate how many LEDs to light
+    uint8_t ledsToLight = (telemetry_data.tRpm * NUM_LEDS) / telemetry_data.tMaxRpm;
+
+    // Loop through and set color
+    for (uint8_t i = 0; i < NUM_LEDS; i++) {
+        if (i < ledsToLight) {
+            // Green at low RPM, shift to red near redline (optional)
+            uint8_t r = (i * 255) / NUM_LEDS;    // Red increases with RPM
+            uint8_t g = 255 - r;                // Green fades out
+            neopixel_set(i, r, g, 0);
+        } else {
+            neopixel_set(i, 0, 0, 0); // Turn off
+        }
+    }
+
+    neopixel_show();
+}
+
 void updateUserInput() {
+	uint32_t now = HAL_GetTick();
 	user_input_data.buttons = 0; // Clear all bits initially
 	user_input_data.hall_analog_1 = 0;
 	user_input_data.hall_analog_2 = 0;
@@ -670,9 +818,9 @@ void updateUserInput() {
 	if (enc_r_flag == 1) user_input_data.buttons |= (1 << 16);
 	if (enc_r_flag == -1) user_input_data.buttons |= (1 << 17);
 
-	enc_l_flag = 0;
-	enc_c_flag = 0;
-	enc_r_flag = 0;
+	if (now - enc_l_time > ENCODER_HOLD_DURATION) enc_l_flag = 0;
+	if (now - enc_c_time > ENCODER_HOLD_DURATION) enc_c_flag = 0;
+	if (now - enc_r_time > ENCODER_HOLD_DURATION) enc_r_flag = 0;
 }
 
 void Start_ADC_DMA() {
@@ -688,13 +836,26 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 void processADC() {
 	adc_data_ready = 0;
 
+	int paddleThreshold = 100;
+
 	// Convert ADC values to 8-bit format
 	user_input_data.hall_analog_1 = map_hall_sensor(adc_values[2]);
 	user_input_data.hall_analog_2 = map_hall_sensor(adc_values[3]);
 
-	// Process hall button thresholds
-	if (adc_values[0] > 2200) user_input_data.buttons |= (1 << 10);
-	if (adc_values[1] > 2200) user_input_data.buttons |= (1 << 11);
+	if (shift_paddle_l == 0 && shift_paddle_r == 0)
+	{
+		shift_paddle_l = adc_values[0];
+		shift_paddle_r = adc_values[1];
+	}
+	else
+	{
+		// Process hall button thresholds
+		if (shift_paddle_l - adc_values[1] > paddleThreshold) user_input_data.buttons |= (1 << 11);
+		if (shift_paddle_r - adc_values[0] > paddleThreshold) user_input_data.buttons |= (1 << 10);
+	//	if (adc_values[0] > 2200) user_input_data.buttons |= (1 << 10);
+	//	if (adc_values[1] > 2200) user_input_data.buttons |= (1 << 11);
+	}
+
 }
 uint8_t map_hall_sensor(uint16_t adc_value) {
     if (adc_value < ADC_REST) adc_value = ADC_REST;
@@ -709,98 +870,75 @@ uint8_t map_hall_sensor(uint16_t adc_value) {
 void CAN_Transmit() {
 	uint32_t currentTime = HAL_GetTick();
 
-	if(currentTime - lastSendTime >= 20) {
-		CAN_TxHeaderTypeDef TxHeader;
-		uint32_t TxMailbox;
+	if(currentTime - lastSendTime >= 2) {
+		sendCANMessage(0x200, (int32_t)user_input_data.buttons);
+		sendCANMessage(0x201, (int32_t)user_input_data.hall_analog_1 & 0xFF);
+		sendCANMessage(0x202, (int32_t)user_input_data.hall_analog_2 & 0xFF);
 
-		// Create a telemetry_packet instance and initialize its fields
-		user_input_data_t dataToSend = user_input_data;
-//		dataToSend.buttons = 0x0F0F;         // Example: Buttons pressed
-//		dataToSend.hall_analog_1 = 100;      // Example: Hall sensor 1 value
-//		dataToSend.hall_analog_2 = 200;      // Example: Hall sensor 2 value
-//		dataToSend.encoder_1 = 1000;         // Example: Encoder 1 value
-//		dataToSend.encoder_2 = -2000;        // Example: Encoder 2 value
-//		dataToSend.encoder_3 = 5000;         // Example: Encoder 3 value
-
-		uint8_t* rawData = (uint8_t*)&dataToSend;
-
-		// Initialize CAN Header
-		TxHeader.StdId = 0x101;           // CAN ID for the message
-		TxHeader.ExtId = 0;
-		TxHeader.IDE = CAN_ID_STD;        // Use Standard ID
-		TxHeader.RTR = CAN_RTR_DATA;      // Data frame
-		TxHeader.DLC = 8;                 // Maximum data length for each CAN frame
-
-		uint8_t frameData[8];             // Temporary buffer for each CAN frame
-
-		// Calculate the size of the telemetry_packet struct
-		int totalSize = sizeof(user_input_data_t);
-
-		// Split the telemetry_packet into CAN frames
-		for (int i = 0; i < totalSize; i += 8) {
-			// Calculate the size of the current chunk (for the last frame)
-			int chunkSize = (totalSize - i >= 8) ? 8 : (totalSize - i);
-
-			// Copy the next chunk of data into the frame buffer
-			memcpy(frameData, &rawData[i], chunkSize);
-
-			// Adjust DLC for the last frame
-			TxHeader.DLC = chunkSize;
-
-			HAL_StatusTypeDef status = HAL_CAN_AddTxMessage(&hcan, &TxHeader, frameData, &TxMailbox);
-			if (status != HAL_OK) {
-				// Inspect the error
-				if (status == HAL_ERROR) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_ERROR\n");
-				} else if (status == HAL_BUSY) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_BUSY\n");
-				} else if (status == HAL_TIMEOUT) {
-					printf("HAL_CAN_AddTxMessage failed: HAL_TIMEOUT\n");
-				}
-
-				// Optionally log the state of CAN error counters
-				uint32_t error = HAL_CAN_GetError(&hcan);
-		        HAL_CAN_Stop(&hcan);  // Stop CAN
-		        HAL_CAN_Start(&hcan); // Restart CAN
-
-		        // Optional: Clear error flags
-		        __HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
-			}
-			lastSendTime = currentTime;  // Update last transmission time
-			HAL_Delay(1);
-		}
+		lastSendTime = currentTime;  // Update last transmission time
+		HAL_Delay(1);
 	}
+}
+
+
+void sendCANMessage(uint16_t canID, int32_t value) {
+    CAN_TxHeaderTypeDef TxHeader;
+    uint8_t TxData[4];  // 4-byte buffer
+
+    // Ensure correct byte order in CAN message
+    TxData[0] = (uint8_t)(value & 0xFF);
+    TxData[1] = (uint8_t)((value >> 8) & 0xFF);
+    TxData[2] = (uint8_t)((value >> 16) & 0xFF);
+    TxData[3] = (uint8_t)((value >> 24) & 0xFF);
+
+    uint32_t TxMailbox;
+
+    // Configure the CAN header
+    TxHeader.StdId = canID;  // Set the ID
+    TxHeader.IDE = CAN_ID_STD;  // Standard 11-bit ID
+    TxHeader.RTR = CAN_RTR_DATA;  // Data frame, not remote request
+    TxHeader.DLC = sizeof(value);  // Data Length = 4 bytes
+
+    // Copy integer value into TxData buffer (ensure correct byte order)
+    memcpy(TxData, &value, sizeof(value));
+
+    // Send the CAN message
+    if (HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox) != HAL_OK) {
+    	 // Optionally log the state of CAN error counters
+		uint32_t error = HAL_CAN_GetError(&hcan);
+		HAL_CAN_Stop(&hcan);  // Stop CAN
+		HAL_CAN_Start(&hcan); // Restart CAN
+		// Optional: Clear error flags
+		__HAL_CAN_CLEAR_FLAG(&hcan, CAN_FLAG_ERRI);
+    }
 }
 
 // CAN receive interrupt callback
 void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef *hcan) {
-    CAN_RxHeaderTypeDef rxHeader;
-    uint8_t rxData[8]; // Max CAN frame size is 8 bytes
-    static uint32_t last_receive_time_1 = 0;
-    // Receive the message
-    if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &rxHeader, rxData) == HAL_OK) {
-    	 // Check if the message ID matches 0x100
-		if (rxHeader.StdId == 0x100) {
-			static uint8_t buffer[sizeof(telemetry_packet)];
-			static uint8_t offset = 0;
-			last_receive_time_1 = HAL_GetTick();
-			// Copy received data into buffer
-			uint8_t bytesToCopy = (rxHeader.DLC < sizeof(telemetry_packet) - offset) ? rxHeader.DLC : sizeof(telemetry_packet) - offset;
-			memcpy(&buffer[offset], rxData, bytesToCopy);
-			offset += bytesToCopy;
+	CAN_RxHeaderTypeDef RxHeader;
+	uint8_t RxData[8];
 
-			// Check if the entire packet has been received
-			if (offset >= sizeof(telemetry_packet)) {
-				// Copy buffer into the telemetry_packet struct
-				memcpy(&telemetry_data, buffer, sizeof(telemetry_packet));
-				offset = 0; // Reset offset for the next packet
-			}
-			if (HAL_GetTick() - last_receive_time_1 > 500) {
-				printf("CAN data timeout: Resetting buffer!\n");
-				offset = 0;  // Prevent infinite accumulation
-			}
+	while (HAL_CAN_GetRxFifoFillLevel(hcan, CAN_RX_FIFO1) > 0) {
+		HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO1, &RxHeader, RxData);
+
+		int32_t value;
+		memcpy(&value, RxData, sizeof(value));
+
+		switch (RxHeader.StdId) {
+			// Wheelbase
+			case 0x100: telemetry_data.tRpm = value; break;
+			case 0x101: telemetry_data.tGear = value; break;
+			case 0x102: telemetry_data.tSpeedKmh = value; break;
+			case 0x103: telemetry_data.tHasDRS = value; break;
+			case 0x104: telemetry_data.tDrs = value; break;
+			case 0x105: telemetry_data.tPitLim = value; break;
+			case 0x106: telemetry_data.tFuel = value; break;
+			case 0x107: telemetry_data.tBrakeBias = value; break;
+			case 0x108: telemetry_data.tMaxRpm = value; break;
+			case 0x109: telemetry_data.tForceFB = value; break;
+			default: break;
 		}
-    }
+	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
@@ -813,6 +951,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         } else {
         	enc_l_flag = -1;
         }
+        enc_l_time = current_time;
     }
     if (GPIO_Pin == C_ENC_PIN_CLK) {
 		if (HAL_GPIO_ReadPin(GPIOB, C_ENC_PIN_DT) == GPIO_PIN_SET) {
@@ -820,6 +959,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		} else {
 			enc_c_flag = -1;
 		}
+		enc_c_time = current_time;
 	}
     if (GPIO_Pin == R_ENC_PIN_CLK) {
 		if (HAL_GPIO_ReadPin(GPIOA, R_ENC_PIN_DT) == GPIO_PIN_SET) {
@@ -827,9 +967,102 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		} else {
 			enc_r_flag = -1;
 		}
+		enc_r_time = current_time;
 	}
 }
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_StartDefaultTask */
+/**
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void const * argument)
+{
+  /* USER CODE BEGIN 5 */
+  /* Infinite loop */
+  for(;;)
+  {
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // Turn LED off
+	  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);   // Turn LED off
+	  osDelay(5);
+  }
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_startNextionTask */
+/**
+* @brief Function implementing the nextionTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startNextionTask */
+void startNextionTask(void const * argument)
+{
+  /* USER CODE BEGIN startNextionTask */
+  /* Infinite loop */
+//	neopixel_clear();
+//	neopixel_show();
+//	osDelay(10);
+
+  for(;;)
+  {
+	  updateTelemetry();
+/*	  updateNeopixels();*/
+//	  neopixel_set(0, 255, 0, 0); // RED
+//	  neopixel_set(1, 0, 255, 0); // GREEN
+//	  neopixel_set(2, 0, 0, 255); // BLUE
+//	  neopixel_set(3, 255, 255, 255); // WHITE
+//	  neopixel_show();
+
+	  osDelay(1);
+  }
+  /* USER CODE END startNextionTask */
+}
+
+/* USER CODE BEGIN Header_startCanTask */
+/**
+* @brief Function implementing the canTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_startCanTask */
+void startCanTask(void const * argument)
+{
+  /* USER CODE BEGIN startCanTask */
+  /* Infinite loop */
+	Start_ADC_DMA();
+  for(;;)
+  {
+	  updateUserInput();
+	  CAN_Transmit();
+	  osDelay(5);
+  }
+  /* USER CODE END startCanTask */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM4 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM4) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
