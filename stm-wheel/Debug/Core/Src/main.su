@@ -7,7 +7,7 @@
 ../Core/Src/main.c:540:13:MX_DMA_Init	16	static
 ../Core/Src/main.c:561:13:MX_GPIO_Init	40	static
 ../Core/Src/main.c:620:6:Flash_Onboard_LED	24	static
-../Core/Src/main.c:630:6:updateTelemetry	40	static
+../Core/Src/main.c:630:6:updateTelemetry	48	static
 ../Core/Src/main.c:671:6:send_int_to_nextion	64	static
 ../Core/Src/main.c:681:6:send__char_to_nextion	64	static
 ../Core/Src/main.c:691:5:oscillate_value	4	static

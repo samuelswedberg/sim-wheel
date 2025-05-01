@@ -5,7 +5,7 @@ import json
 import struct 
 
 STRUCT_FORMAT = "<9if" # <#i1f the # is the number of items - 1
-PORT = "COM10"
+PORT = "COM12"
 BAUDRATE = 115200
 STRUCT_SIZE = struct.calcsize(STRUCT_FORMAT)
 

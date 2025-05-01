@@ -628,7 +628,7 @@ void Flash_Onboard_LED(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin, uint32_t delay_ms
  * NEXTION UART FUNCTIONS
  */
 void updateTelemetry() {
-//	int mappedRpm = map_value(telemetry_data.tRpm, 0, telemetry_data.tMaxRpm, 0, 100);
+	int mappedRpmBar = map_rpmbar(telemetry_data.tRpm, 0, telemetry_data.tMaxRpm, 0, 100);
 	char *mappedRpm = int_to_string(telemetry_data.tRpm);
 	char *mappedGear = map_gear(telemetry_data.tGear);
 	char *mappedSpeed = int_to_string(telemetry_data.tSpeedKmh);
@@ -637,7 +637,7 @@ void updateTelemetry() {
 	char *mappedFuel = int_to_string(telemetry_data.tFuel);
 	char *mappedBrakeBias = int_to_string(telemetry_data.tBrakeBias);
 
-//	send_int_to_nextion("rpmbar", mappedRpm);
+	send_int_to_nextion("rpmbar", mappedRpmBar);
 	send__char_to_nextion("rpm", mappedRpm);
 	send__char_to_nextion("gear", mappedGear);
 	send__char_to_nextion("speed", mappedSpeed);
@@ -1017,7 +1017,7 @@ void startNextionTask(void const * argument)
 //	  neopixel_set(3, 255, 255, 255); // WHITE
 //	  neopixel_show();
 
-	  osDelay(5);
+	  osDelay(1);
   }
   /* USER CODE END startNextionTask */
 }
