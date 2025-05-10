@@ -329,17 +329,17 @@ void StartControlLoop(void const * argument)
 
 	  for (;;) {
 		  // Step 1: Retrieve current force feedback signal (e.g., from game data).
-		  float force_feedback_signal = gFfbSignal;
+		  float force_feedback_signal = telemetry_data.tForceFB;
 		  read_hall_sensor();
 		  // Step 2: Calculate individual forces based on physics:
-		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
-		  float damping_force = calculate_damping(angular_velocity);
-		  float friction_force = calculate_friction(angular_velocity);
-		  float lock_force = calculate_lock(wheel_angle);
+//		  float inertia_force = calculate_inertia(force_feedback_signal, angular_velocity);
+//		  float damping_force = calculate_damping(angular_velocity);
+//		  float friction_force = calculate_friction(angular_velocity);
+//		  float lock_force = calculate_lock(wheel_angle);
 
 		  // Step 3: Sum all forces and scale to PWM range:
-		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
-
+//		  total_force = force_feedback_signal + inertia_force + damping_force + friction_force + lock_force;
+		  total_force = force_feedback_signal;
 		  // Strength gain
 		  total_force *= gStrength;
 
@@ -348,13 +348,14 @@ void StartControlLoop(void const * argument)
 		  // Deadband
 		  const float FORCE_DEADBAND_THRESHOLD = 0.05f; // Adjust as needed
 		  const float ANGLE_DEADBAND_THRESHOLD = 50.0f; // Adjust as needed
-		  float error = wheel_angle;
-		  if (fabsf(error) < ANGLE_DEADBAND_THRESHOLD)  {
-			  total_force = 0.0f;
-		  } else { // TEST CODE: gives increasing feedback farther away from center
-			  total_force = -Kp * (error / WHEEL_MAX_ANGLE);
-			  total_force = constrain(total_force, -1.0f, 1.0f);
-		  }
+//		  float error = wheel_angle;
+//		  if (fabsf(error) < ANGLE_DEADBAND_THRESHOLD)  {
+//			  total_force = 0.0f;
+//		  }
+//		  else { // TEST CODE: gives increasing feedback farther away from center
+//			  total_force = -Kp * (error / WHEEL_MAX_ANGLE);
+//			  total_force = constrain(total_force, -1.0f, 1.0f);
+//		  }
 
 		  // Step 4: Map total_force to PWM and determine direction
 		  float pwm_output = scale_to_pwm(total_force);
@@ -368,8 +369,8 @@ void StartControlLoop(void const * argument)
 
 		  // Step 5: Send PWM signal to H-bridge for motor control:
 		  //set_motor_direction(motor_direction);
-//		  set_motor_pwm(pwm_output, motor_direction);
-		  set_motor_pwm(gPWMConstDebug, gDirDebug); //DEBUG MOTOR
+		  set_motor_pwm(pwm_output, motor_direction);
+//		  set_motor_pwm(gPWMConstDebug, gDirDebug); //DEBUG MOTOR
 
 		  // Step 6: Update wheel position and velocity for next loop:
 		  update_wheel_position_and_velocity(&wheel_angle, &angular_velocity);
