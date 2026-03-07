@@ -2,30 +2,38 @@
 
 [![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 
-Welcome to the Sim Racing Wheel System repository — a fully embedded, custom-built force feedback steering wheel and pedal system designed for PC sim racing. This project was developed as part of my academic and personal engineering portfolio.
+A fully embedded, custom-built force feedback steering wheel and pedal system designed for PC sim racing. Developed as a year-long senior design capstone at North Dakota State University.
 
-> 🔗 **Project Website:** [samuelswedberg.com](https://www.samuelswedberg.com/projects/simracingsystem.html)
+> 🔗 **Project Website:** [samuelswedberg.com](https://www.samuelswedberg.com/)
+
+![Sim Racing Wheel System hero image](docs/images/image-67.png)
 
 ---
 
-## 📄 Documentation
-
-I ported our OneNote document throughout the two semesters to a Markdown document in the docs folder. It isn't the most optimal solution but it has the information there of our development timeline.
-
 ## 🧠 About the Project
 
-This system was designed and built from the ground up as part of a senior design capstone project at North Dakota State University. The goal was to create a modular sim racing system that interfaces seamlessly with PC games.
+This system was designed and built from the ground up with the goal of creating a modular sim racing system that interfaces seamlessly with PC games.
 
 Key components include:
 
-- **Wheelbase**: Powered by an STM32F4 MCU, controlling a DC motor with real-time force feedback.
-- **Steering Wheel**: Button and encoder inputs, rotary switches, and telemetry display via CAN and UART.
-- **Pedals**: Supports analog sensors with adjustable profiles and calibration.
-- **Communication**: USB Composite Driver and CAN bus communication between all devices.
-- **RTOS**: Uses FreeRTOS to handle motor control, peripheral processing, and CAN communication efficiently.
-- **Display**: Real-time telemetry output using a Nextion touchscreen.
+- **Wheelbase** — Powered by an STM32F4 MCU, controlling a DC motor with real-time force feedback
+- **Steering Wheel** — Button and encoder inputs, rotary switches, and telemetry display via CAN and UART
+- **Pedals** — Analog sensors with adjustable profiles and calibration
+- **Communication** — USB Composite HID driver and CAN bus between all devices
+- **RTOS** — FreeRTOS handling motor control, peripheral processing, and CAN communication
+- **Display** — Real-time telemetry output via Nextion touchscreen
 
-This was an extensive embedded systems project that included circuit design, firmware development, real-time data communication, mechanical design, and signal processing.
+This was an extensive embedded systems project spanning circuit design, firmware development, real-time data communication, mechanical design, and signal processing.
+
+---
+
+## 🏆 Results
+
+Earned top faculty and industry feedback at the **NDSU Senior Design Expo**. The system successfully delivers real-time force feedback with full USB HID game controller recognition on PC.
+
+> **Demo Video:** [Watch on YouTube](https://www.youtube.com/watch?v=K_I2sCAWH18)
+>
+> **Project Interview:** [Watch on YouTube](https://www.youtube.com/watch?v=8aA3XMMHGLo)
 
 ---
 
@@ -35,49 +43,65 @@ This was an extensive embedded systems project that included circuit design, fir
 - **Languages**: C, Python (telemetry)
 - **Frameworks**: FreeRTOS, AL94 USB Composite
 - **Protocols**: CAN bus, USB HID, UART, SPI
-- **Tools**: Fusion 360 (CAD and Electronic Design), Logic Analyzers, Oscilloscope, Git
-- **Misc**: Custom PCBs, Neopixel RPM LEDs, Analog sensors
+- **CAD & Fabrication**: Fusion 360 (mechanical + electronic design), custom two-layer PCBs, 3D-printed enclosures (PA6-CF & ABS)
+- **Test Equipment**: Logic analyzers, oscilloscope, multimeter
+- **Misc**: Neopixel RPM LEDs, analog sensors
 
 ---
 
-## 🚀 Getting Started
+## 📄 Documentation
 
-Below is the directory tree description:
+Development documentation ported from OneNote — covers the full design timeline across both semesters. Available in the `docs/` folder.
+
+---
+
+## 📁 Repository Structure
 
 ```ascii
 sim-wheel/
-├── .git/                         # Git version control folder
-├── .vscode/                      # VSCode config files
-├── ac_sharedmemory/              # Telemetry interface program (main)
-├── ac_telemetry_client/          # R&D telemetry testing tool
-├── docs/                         # Project documentation
-├── freertos/                     # STM32 wheelbase firmware (FreeRTOS-based)
-├── pico/                         # R&D for Raspberry Pi Pico (RP2040)
-├── Pico_Wheel/                   # R&D for Pico wheel firmware
-├── Proj/                         # General R&D for RP2040
+├── freertos/                     # STM32 wheelbase firmware (FreeRTOS-based) — main
 ├── stm-pedal/                    # STM32 firmware for pedal input system
 ├── stm-wheel/                    # STM32 firmware for steering wheel buttons/inputs
-├── stm-wheelbase/                # (Legacy) wheelbase firmware before FreeRTOS refactor
-├── .gitignore                    # Git ignore rules
+├── ac_sharedmemory/              # Telemetry interface program (main PC app)
+├── docs/                         # Project documentation
+├── ac_telemetry_client/          # Early telemetry testing tool (R&D)
+├── pico/                         # Raspberry Pi Pico prototyping (R&D)
+├── Pico_Wheel/                   # Pico wheel firmware prototyping (R&D)
+├── Proj/                         # General RP2040 prototyping (R&D)
+├── stm-wheelbase/                # Legacy wheelbase firmware (pre-FreeRTOS refactor)
 ├── LICENSE                       # GNU GPL v3.0 license
-└── README.md                     # Project overview and setup instructions
+└── README.md
 ```
 
-To build and run the firmware:
+---
 
-Clone the repo:
+## 🚀 Building
 
-   ```bash
-   git clone https://github.com/YourUsername/sim-wheel.git
-   cd sim-wheel
-   ```
+**Prerequisites:**
+- [STM32CubeIDE](https://www.st.com/en/development-tools/stm32cubeide.html) (firmware development)
+- STM32CubeProgrammer (optional, for flashing)
+- An ST-Link debugger or Nucleo board with onboard USB ST-Link
 
-We used STM32CubeIDE for all firmware development. To get started, install STM32CubeIDE and optionally STM32CubeProgrammer for flashing and debugging support.
+**Setup:**
 
-Projects can be imported by selecting:
-File > Import > Existing Projects into Workspace in STM32CubeIDE.
+```bash
+git clone https://github.com/samuelswedberg/sim-wheel.git
+cd sim-wheel
+```
 
-To flash and debug the firmware, you'll need either:
+Import projects via **File → Import → Existing Projects into Workspace** in STM32CubeIDE.
 
-- an ST-Link debugger (external or built-in), or
-- a Nucleo board with onboard USB ST-Link interface.
+---
+
+## 👥 Contributors
+
+This senior design project was completed as a group effort. The repository and project documentation in this archive are attributed to:
+
+- Samuel Swedberg
+- Christian Studsdahl
+
+---
+
+## 📝 License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
